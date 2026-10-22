@@ -1,0 +1,4 @@
+# Web layer on top of requirements.txt: the API that serves the nightly snapshot.
+-r requirements.txt
+fastapi>=0.110
+uvicorn[standard]>=0.29
