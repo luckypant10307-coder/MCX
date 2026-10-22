@@ -27,12 +27,12 @@ jobs:
       MCX_DB_PASSWORD: mcx
       MCX_DB_NAME: mcx_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements-api.txt pytest httpx
       - name: API imports cleanly
         run: python -c "import api.main"
-      - run: pytest -q
+      - run: python -m pytest -q
