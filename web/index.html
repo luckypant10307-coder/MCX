@@ -38,7 +38,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#FAFAF5}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .chip{display:inline-block;font-size:11.5px;font-weight:800;border-radius:6px;padding:3px 8px;letter-spacing:.3px;white-space:nowrap}
 .s-ALERT,.s-TRADED{background:var(--green-bg);color:var(--green)}.s-NO_TRADE{background:var(--amber-bg);color:var(--amber)}
-.s-QUIET{background:var(--slate-bg);color:var(--slate)}.s-SIGNAL{background:var(--blue-bg);color:var(--blue)}
+.s-QUIET{background:var(--slate-bg);color:var(--slate)}.s-WARMUP{background:#F3F4F6;color:#6B7280;border:1px dashed #9CA3AF}.s-SIGNAL{background:var(--blue-bg);color:var(--blue)}
 .ok{color:var(--green)}.bad{color:var(--red)}.muted{color:var(--muted)}
 .banner{border-radius:10px;padding:11px 15px;font-size:14px;margin-bottom:14px}
 .gate{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
@@ -92,13 +92,14 @@ const V = {};
 V.overview = async () => {
   const o = await get("/api/overview"), m = o.meta, s = o.summary;
   return `
+  ${s.WARMUP ? `<div class="banner" style="background:var(--blue-bg);color:var(--blue)"><b>Warming up on real data.</b> ${s.WARMUP} pairs need more history before they can be scored (${m.sessions} session${m.sessions === 1 ? "" : "s"} loaded so far). Prices, contract conversion and data checks below are live.</div>` : ""}
   ${m.sample_data ? `<div class="banner" style="background:var(--gold-bg);color:var(--gold-t)"><b>Sample data.</b> This run uses the synthetic generator in MCX bhavcopy format. Run the nightly job with <span class="mono">--source csv</span> on downloaded bhavcopy for real market numbers.</div>` : ""}
   <div class="grid k4">
     <div class="card kpi"><div class="l">Latest session</div><div class="v" style="font-size:22px;margin:10px 0 6px">${fdate(m.asof)}</div>
       <div class="s">${o.data_quality.rows_out.toLocaleString("en-IN")} validated rows · ${o.data_quality.date_echo_rows.toLocaleString("en-IN")} wrong-date rows caught</div></div>
     <div class="card kpi"><div class="l">Alerts</div><div class="v ok">${s.ALERT}</div><div class="s">gates and risk checks passed</div></div>
     <div class="card kpi"><div class="l">No trade</div><div class="v" style="color:var(--amber)">${s.NO_TRADE}</div><div class="s">unusual, but a gate refused</div></div>
-    <div class="card kpi"><div class="l">Quiet</div><div class="v">${s.QUIET}</div><div class="s">nothing unusual</div></div>
+    <div class="card kpi"><div class="l">${s.WARMUP ? "Quiet / warming up" : "Quiet"}</div><div class="v">${s.QUIET}${s.WARMUP ? ` <span class="muted" style="font-size:20px">/ ${s.WARMUP}</span>` : ""}</div><div class="s">${s.WARMUP ? "nothing unusual / not enough history yet" : "nothing unusual"}</div></div>
   </div>
   <div class="grid k2" style="margin-top:16px">
     <div class="card"><h3>Contracts <small>front month, converted to ₹ per gram of pure gold</small></h3><div class="tw">
@@ -124,12 +125,12 @@ V.pairs = async () => {
 
 V.pair = async (id) => {
   const p = await get("/api/pairs/" + id), r = p.risk || {};
-  const gates = Object.entries(p.gates).map(([k, ok]) => `<div class="gate"><div class="gi" style="background:${ok ? "var(--green)" : "var(--red)"}">${ok ? "✓" : "✕"}</div><div>${esc(GATES[k] || k)}</div></div>`).join("");
+  const gates = Object.entries(p.gates).map(([k, ok]) => `<div class="gate"><div class="gi" style="background:${ok == null ? "#9CA3AF" : ok ? "var(--green)" : "var(--red)"}">${ok == null ? "–" : ok ? "✓" : "✕"}</div><div>${esc(GATES[k] || k)}${ok == null ? ' <span class="muted">not tested yet</span>' : ""}</div></div>`).join("");
   return `<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap"><button class="btn" data-go="pairs">← Pairs</button>
     <h2 style="margin:0;font-size:22px">${esc(p.pair)}</h2>${chip(p.status)}<span class="muted">${esc(p.reason)}</span></div>
   <div class="grid k2">
     <div class="card"><h3>Spread vs its own history <small>band = trailing centre ± ${p.z_entry}×scale, data to the previous session only</small></h3>${bandChart(p.history, p.z_entry, 820, 320)}
-      <div style="margin-top:10px">Today: spread ${n(p.spread_bp, 1, true)} bp, centre ${n(p.centre_bp, 1, true)} bp, z = <b>${n(p.z)}</b>, half-life ${p.halflife == null ? "∞" : n(p.halflife, 1)} sessions, ADF t ${n(p.adf_t)}</div></div>
+      <div style="margin-top:10px${p.status === "WARMUP" ? ";display:none" : ""}">Today: spread ${n(p.spread_bp, 1, true)} bp, centre ${n(p.centre_bp, 1, true)} bp, z = <b>${n(p.z)}</b>, half-life ${p.halflife == null ? "∞" : n(p.halflife, 1)} sessions, ADF t ${n(p.adf_t)}</div></div>
     <div class="card"><h3>Statistical gates</h3>${gates}
       <h3 style="margin-top:16px">Risk board</h3>
       ${p.risk ? `<table>

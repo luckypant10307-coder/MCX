@@ -61,8 +61,8 @@ def main(argv=None) -> int:
     s = snap["summary"]
     print("asof {}  source {}  run {}  ({:.0f}s)".format(
         snap["meta"]["asof"], a.source, snap["meta"]["run_id"], time.time() - t0))
-    print("pairs: {} ALERT, {} NO_TRADE, {} QUIET".format(
-        s.get("ALERT", 0), s.get("NO_TRADE", 0), s.get("QUIET", 0)))
+    print("pairs: {} ALERT, {} NO_TRADE, {} QUIET, {} WARMUP".format(
+        s.get("ALERT", 0), s.get("NO_TRADE", 0), s.get("QUIET", 0), s.get("WARMUP", 0)))
     for p in snap["pairs"]:
         print("  {:<22s} {:<8s} z {:>6}  {}".format(
             p["pair"], p["status"], "n/a" if p["z"] is None else "{:+.2f}".format(p["z"]),
