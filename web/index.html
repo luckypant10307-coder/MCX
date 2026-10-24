@@ -3,173 +3,228 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MCX Gold Relative Value</title>
+<title>Gold Spread Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
-/* Layout: findings first, monitoring second. One column of evidence, each chart answering one question. */
+/* Layout: app shell. Dark navigation rail, light working surface, one task per page. */
 :root {
   color-scheme: light;
-  --page: #f9f9f7; --surface: #fcfcfb; --raised: #ffffff;
-  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
-  --accent: #b7791f; --accent-soft: #f6ecd9;
-  /* categorical (premium lines): reference slots 1-3, validated all-pairs */
+  --rail: #0f172a; --rail-2: #1e293b; --rail-ink: #cbd5e1; --rail-muted: #94a3b8; --rail-line: #1f2a3d;
+  --page: #f5f6f8; --card: #ffffff; --ink: #0f172a; --ink-2: #475569; --muted: #64748b;
+  --line: #e5e7eb; --line-2: #eef0f3; --hover: #f8fafc;
+  --gold: #d97a1e; --gold-ink: #a4500b; --gold-bg: #fdf3e6;
+  --good: #15803d; --good-bg: #ecfdf3; --good-line: #bbf7d0;
+  --warn: #b45309; --warn-bg: #fff7e6; --warn-line: #fcd9a6;
+  --bad: #b91c1c; --bad-bg: #fef2f2; --bad-line: #fecaca;
+  --quiet-bg: #f1f5f9; --quiet: #475569;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
-  /* ordinal |z| bands: one blue hue, light -> dark, validated --ordinal */
   --o1: #86b6ef; --o2: #5598e7; --o3: #256abf; --o4: #104281;
-  /* diverging poles (net per trade by year) */
   --pos: #2a78d6; --neg: #e34948;
-  /* status: always paired with an icon and a label */
-  --good: #0ca30c; --good-ink: #006300; --good-bg: #e7f6e7;
-  --bad: #d03b3b; --bad-bg: #fbeaea;
-  --warn: #fab219; --warn-ink: #8a5a00; --warn-bg: #fdf3dc;
-  --neutral-bg: #f0efec;
-  --band: rgba(42,120,214,0.10);
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --band: rgba(100,116,139,0.12);
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --raised: #1f1f1e;
-    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
-    --accent: #e0a83a; --accent-soft: #33291a;
+    --page: #0b0f17; --card: #131a26; --ink: #e5e7eb; --ink-2: #b6c0cf; --muted: #8b97a8;
+    --line: #243044; --line-2: #1b2433; --hover: #172131;
+    --gold-bg: #33240f; --gold-ink: #f0b264;
+    --good: #4ade80; --good-bg: #0f2a1a; --good-line: #14532d;
+    --warn: #fbbf24; --warn-bg: #2b2110; --warn-line: #5b4310;
+    --bad: #f87171; --bad-bg: #2c1515; --bad-line: #5f1d1d;
+    --quiet-bg: #1e293b; --quiet: #b6c0cf;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70;
     --o1: #184f95; --o2: #2a78d6; --o3: #5598e7; --o4: #9ec5f4;
-    --pos: #3987e5; --neg: #e66767;
-    --good-ink: #0ca30c; --good-bg: #13260f; --bad-bg: #2e1616;
-    --warn-ink: #fab219; --warn-bg: #2e2510; --neutral-bg: #383835;
-    --band: rgba(57,135,229,0.16);
+    --pos: #3987e5; --neg: #e66767; --band: rgba(148,163,184,0.14);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --raised: #1f1f1e;
-  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
-  --accent: #e0a83a; --accent-soft: #33291a;
+  --page: #0b0f17; --card: #131a26; --ink: #e5e7eb; --ink-2: #b6c0cf; --muted: #8b97a8;
+  --line: #243044; --line-2: #1b2433; --hover: #172131;
+  --gold-bg: #33240f; --gold-ink: #f0b264;
+  --good: #4ade80; --good-bg: #0f2a1a; --good-line: #14532d;
+  --warn: #fbbf24; --warn-bg: #2b2110; --warn-line: #5b4310;
+  --bad: #f87171; --bad-bg: #2c1515; --bad-line: #5f1d1d;
+  --quiet-bg: #1e293b; --quiet: #b6c0cf;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70;
   --o1: #184f95; --o2: #2a78d6; --o3: #5598e7; --o4: #9ec5f4;
-  --pos: #3987e5; --neg: #e66767;
-  --good-ink: #0ca30c; --good-bg: #13260f; --bad-bg: #2e1616;
-  --warn-ink: #fab219; --warn-bg: #2e2510; --neutral-bg: #383835;
-  --band: rgba(57,135,229,0.16);
+  --pos: #3987e5; --neg: #e66767; --band: rgba(148,163,184,0.14);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.55 var(--font); }
+html, body { margin: 0; height: 100%; }
+body { background: var(--page); color: var(--ink); font: 14.5px/1.5 var(--font); display: flex; }
 a { color: inherit; }
-.top { position: sticky; top: 0; z-index: 5; background: var(--page); border-bottom: 1px solid var(--grid); }
-.bar { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
-  padding-block: 12px 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.brand { display: flex; align-items: baseline; gap: 10px; }
-.brand b { font-size: 17px; letter-spacing: -0.01em; }
-.brand .au { font: 700 12px var(--mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; }
-.meta { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--ink-2); }
-.pill { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 10px; }
-.pill.real { background: var(--good-bg); color: var(--good-ink); }
-.pill.sample { background: var(--warn-bg); color: var(--warn-ink); }
-nav { width: 100%; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-nav a { padding: 10px 12px 11px; text-decoration: none; color: var(--ink-2); font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; }
-nav a:hover { color: var(--ink); }
-nav a.on { color: var(--ink); border-bottom-color: var(--accent); }
-nav a:focus-visible, button:focus-visible, summary:focus-visible, tr[tabindex]:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
-main { max-width: 1180px; margin: 0 auto; padding-block: 24px 64px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: grid; gap: 22px; }
-h1 { font-size: clamp(24px, 3.4vw, 34px); line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
-h2 { font-size: 19px; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
-.lede { color: var(--ink-2); max-width: 70ch; margin: 0; }
-.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 18px 20px; min-width: 0; display: grid; gap: 12px; }
-.card > header { display: grid; gap: 4px; }
-.card > header p { margin: 0; color: var(--ink-2); max-width: 75ch; }
-.q { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
-.grid2 { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
-.hero { display: grid; gap: 14px; }
-.verdict { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 10px; background: var(--bad-bg); }
-.verdict.ok { background: var(--good-bg); }
-.verdict .ic { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; background: var(--bad); }
-.verdict.ok .ic { background: var(--good); }
-.tiles { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.tile { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 14px 16px; min-width: 0; }
-.tile .l { font-size: 12px; font-weight: 600; color: var(--ink-2); }
-.tile .v { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0; }
-.tile .s { font-size: 13px; color: var(--muted); }
-.neg { color: var(--neg); } .posv { color: var(--pos); }
-.chart { position: relative; }
-.chart { overflow-x: auto; }
+
+/* rail */
+aside { width: 248px; flex: none; background: var(--rail); color: var(--rail-ink); display: flex; flex-direction: column;
+  padding: 18px 14px; padding-left: max(14px, env(safe-area-inset-left, 0px)); height: 100vh; position: sticky; top: 0; }
+.brand { display: flex; gap: 11px; align-items: center; padding: 2px 6px 18px; border-bottom: 1px solid var(--rail-line); margin-bottom: 14px; }
+.logo { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, #f2c14e, #d97a1e); color: #1a1205;
+  display: grid; place-items: center; font-weight: 800; font-size: 15px; flex: none; }
+.brand b { display: block; color: #fff; font-size: 15.5px; line-height: 1.25; }
+.brand small { color: var(--rail-muted); font-size: 12px; }
+nav { display: grid; gap: 3px; }
+nav a { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 8px; color: var(--rail-ink);
+  text-decoration: none; font-weight: 500; }
+nav a svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+nav a:hover { background: var(--rail-2); color: #fff; }
+nav a.on { background: #24324a; color: #fff; font-weight: 600; }
+nav .cnt { margin-left: auto; min-width: 20px; text-align: center; border-radius: 10px; padding: 0 6px; font-size: 11.5px; font-weight: 700; color: #fff; background: var(--gold); }
+nav .cnt.calm { background: #334155; color: var(--rail-ink); }
+.foot { margin-top: auto; border-top: 1px solid var(--rail-line); padding: 12px 6px 0; font-size: 12px; color: var(--rail-muted); line-height: 1.55; }
+
+/* main */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; }
+.topbar { min-height: 64px; background: var(--card); border-bottom: 1px solid var(--line); display: flex; align-items: center; flex-wrap: wrap;
+  gap: 8px 14px; padding-block: 10px; padding-left: 28px; padding-right: max(28px, env(safe-area-inset-right, 0px)); }
+.topbar h1 { font-size: 21px; margin: 0; letter-spacing: -0.01em; }
+.dpill { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; border-radius: 6px; padding: 3px 9px; }
+.dpill.real { background: var(--good-bg); color: var(--good); }
+.dpill.sample { background: var(--gold-bg); color: var(--gold-ink); }
+.run { margin-left: auto; display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.run .mono { color: var(--ink-2); }
+.datechip { border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-weight: 600; color: var(--ink); background: var(--card); white-space: nowrap; }
+#view { flex: 1; overflow: auto; padding-block: 24px 48px; padding-left: 28px; padding-right: max(28px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px; align-content: start; }
+
+/* building blocks */
+.kpis { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; min-width: 0; }
+.kpi .l { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.kpi .v { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 2px; line-height: 1.15; }
+.kpi .s { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.c-good { color: var(--good); } .c-warn { color: var(--warn); } .c-bad { color: var(--bad); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.card h2 { font-size: 16px; margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; letter-spacing: -0.01em; }
+.card h2 small { font-size: 13px; font-weight: 400; color: var(--muted); }
+.card p { margin: 0; }
+.grid2 { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.grid2.wide { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+td.nw, th.nw { white-space: nowrap; }
+.grid2.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.note { font-size: 13px; color: var(--muted); max-width: 90ch; }
+.banner { border-radius: 10px; padding: 12px 16px; background: var(--gold-bg); color: var(--gold-ink); }
+.banner b { color: inherit; }
+.banner.info { background: var(--quiet-bg); color: var(--ink-2); }
+.verdict { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; border-radius: 10px; padding: 12px 16px;
+  background: var(--bad-bg); border: 1px solid var(--bad-line); }
+.verdict.ok { background: var(--good-bg); border-color: var(--good-line); }
+.verdict .t { display: flex; gap: 10px; align-items: center; }
+.ico { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 12px; flex: none; }
+.ico.good { background: var(--good); } .ico.bad { background: var(--bad); } .ico.off { background: var(--muted); }
+.btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; text-decoration: none; white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.tw { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 12px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.go { cursor: pointer; } tr.go:hover td { background: var(--hover); }
+td b { font-weight: 700; }
+.sub { font-size: 12px; color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; border-radius: 6px; padding: 3px 8px; white-space: nowrap; text-transform: uppercase; }
+.chip.ALERT, .chip.TRADED, .chip.GREEN, .chip.LOADED, .chip.ok { background: var(--good-bg); color: var(--good); }
+.chip.NO_TRADE, .chip.YELLOW, .chip.SIGNAL { background: var(--warn-bg); color: var(--warn); }
+.chip.RED, .chip.REJECTED_DATE, .chip.UNREADABLE { background: var(--bad-bg); color: var(--bad); }
+.chip.QUIET, .chip.WARMUP { background: var(--quiet-bg); color: var(--quiet); }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.checks { display: grid; }
+.check { display: grid; grid-template-columns: 26px 1fr; gap: 4px 12px; padding: 12px 6px; border-bottom: 1px solid var(--line-2); }
+.check:last-child { border-bottom: 0; }
+.check.fail { background: var(--bad-bg); border-radius: 8px; }
+.check .ico { margin-top: 1px; }
+.check b { font-weight: 700; }
+.check .d { grid-column: 2; font-size: 13px; color: var(--ink-2); }
+.decision { border-radius: 12px; padding: 14px 16px; border: 2px solid var(--good); background: var(--good-bg); display: grid; gap: 6px; }
+.decision.no { border-color: var(--warn); background: var(--warn-bg); }
+.decision.quiet { border-color: var(--line); background: var(--quiet-bg); }
+.decision .h { font-weight: 800; letter-spacing: .03em; text-transform: uppercase; font-size: 13.5px; color: var(--good); }
+.decision.no .h { color: var(--warn); } .decision.quiet .h { color: var(--ink-2); }
+.leg { display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; }
+.decomp { display: flex; height: 40px; border-radius: 8px; overflow: hidden; gap: 2px; font-size: 13px; font-weight: 700; }
+.decomp div { display: flex; align-items: center; padding: 0 12px; white-space: nowrap; overflow: hidden; min-width: 0; }
+.decomp .n { background: var(--quiet-bg); color: var(--ink-2); }
+.decomp .x { background: var(--gold); color: #fff; }
+.decomp .x.calm { background: var(--gold-bg); color: var(--gold-ink); }
+.tg { background: var(--quiet-bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font: 13px/1.7 var(--mono); white-space: pre-wrap; margin: 0; color: var(--ink); }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 700 17px var(--font); cursor: pointer; }
+.stepper button:hover { background: var(--hover); }
+.stepper output { min-width: 56px; text-align: center; font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.params td:first-child { width: 34%; }
+.zt { position: relative; height: 18px; min-width: 130px; }
+.zt .track { position: absolute; left: 0; right: 0; top: 8px; height: 2px; background: var(--line); }
+.zt .zone { position: absolute; top: 4px; height: 10px; background: var(--gold-bg); border-radius: 2px; }
+.zt .mid { position: absolute; top: 3px; width: 1px; height: 12px; background: var(--muted); }
+.zt .dot { position: absolute; top: 4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--ink-2); box-shadow: 0 0 0 2px var(--card); }
+.zt .dot.hot { background: var(--gold); }
+.prop { display: flex; height: 28px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.prop div { display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700; min-width: 0; }
+.tiles { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* charts */
+.chart { position: relative; overflow-x: auto; }
 .chart svg { display: block; width: 100%; height: auto; }
-/* Below ~620px a scaled-down chart's labels drop under legible size; keep it at a
-   readable width and let it scroll inside its own box instead. */
-@media (max-width: 620px) { .chart svg { min-width: 600px; } }
 .chart text { font: 11px var(--font); fill: var(--muted); }
 .chart .lbl { font-size: 12px; fill: var(--ink-2); font-weight: 600; }
-.chart .grid { stroke: var(--grid); stroke-width: 1; }
-.chart .axis { stroke: var(--axis); stroke-width: 1; }
+.chart .grid { stroke: var(--line-2); } .chart .axis { stroke: var(--line); }
 .chart .ref { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 6 4; }
-.chart .xh { stroke: var(--ink-2); stroke-width: 1; opacity: .5; }
+.chart .xh { stroke: var(--ink-2); opacity: .5; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; }
-.legend i.dash { border-top-style: dashed; }
-.legend i.dot { width: 9px; height: 9px; border-radius: 50%; border: 0; }
-.legend i.box { width: 12px; height: 10px; border: 0; border-radius: 2px; }
-.note { font-size: 13px; color: var(--ink-2); margin: 0; max-width: 80ch; }
-.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--raised); color: var(--ink); border: 1px solid var(--ring);
-  box-shadow: 0 6px 20px rgba(0,0,0,.14); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.45; min-width: 140px; max-width: 280px; }
-.tip .h { color: var(--ink-2); font-size: 12px; margin-bottom: 4px; }
-.tip .r { display: flex; align-items: center; gap: 8px; }
-.tip .r b { font-variant-numeric: tabular-nums; }
+.legend i.dash { border-top-style: dashed; } .legend i.dot { width: 9px; height: 9px; border-radius: 50%; border: 0; } .legend i.box { width: 12px; height: 10px; border: 0; border-radius: 2px; }
+details { font-size: 13px; } summary { cursor: pointer; color: var(--ink-2); width: fit-content; }
+.tip { position: fixed; z-index: 30; pointer-events: none; background: #0f172a; color: #fff; border-radius: 8px; padding: 8px 11px; font-size: 13px; line-height: 1.45;
+  max-width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.tip .h { color: #cbd5e1; font-size: 12px; margin-bottom: 3px; }
+.tip .r { display: flex; align-items: center; gap: 8px; } .tip .r span { color: #cbd5e1; }
 .tip .r i { width: 12px; height: 0; border-top: 2px solid; flex: none; }
-.tip .r span { color: var(--ink-2); }
-details { font-size: 13px; }
-summary { cursor: pointer; color: var(--ink-2); width: fit-content; }
-.tw { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th { text-align: left; font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 8px 10px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
-td { padding: 9px 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
-.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-tr.go { cursor: pointer; } tr.go:hover td { background: var(--neutral-bg); }
-.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
-.chip.ALERT, .chip.TRADED { background: var(--good-bg); color: var(--good-ink); }
-.chip.NO_TRADE { background: var(--warn-bg); color: var(--warn-ink); }
-.chip.QUIET, .chip.SIGNAL { background: var(--neutral-bg); color: var(--ink-2); }
-.chip.WARMUP { background: var(--neutral-bg); color: var(--muted); }
-.zt { position: relative; height: 18px; min-width: 150px; }
-.zt .track { position: absolute; left: 0; right: 0; top: 8px; height: 2px; background: var(--grid); }
-.zt .zone { position: absolute; top: 4px; height: 10px; background: var(--neutral-bg); border-radius: 2px; }
-.zt .mid { position: absolute; top: 3px; width: 1px; height: 12px; background: var(--axis); }
-.zt .dot { position: absolute; top: 4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface); }
-.zt .dot.hot { background: var(--accent); }
-.prop { display: flex; height: 26px; border-radius: 5px; overflow: hidden; gap: 2px; }
-.prop div { display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700; min-width: 0; }
-.mono { font-family: var(--mono); font-size: 13px; }
-.muted { color: var(--muted); }
-.back { border: 1px solid var(--ring); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; width: fit-content; }
-.err { padding: 16px; border-radius: 10px; background: var(--bad-bg); }
-.gates { display: grid; gap: 6px; }
-.gate { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-.gate b { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 11px; flex: none; }
-dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
-dl.kv dt { color: var(--ink-2); } dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
-@media (prefers-reduced-motion: no-preference) { tr.go td, nav a { transition: background .12s, color .12s; } }
+.err { padding: 18px; border-radius: 12px; background: var(--bad-bg); border: 1px solid var(--bad-line); }
+.empty { color: var(--muted); padding: 8px 0; }
+:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+
+/* narrow screens: the rail becomes a top bar */
+@media (max-width: 1100px) { .kpis, .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid2, .grid2.even, .grid2.wide { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 820px) {
+  body { display: block; }
+  aside { width: auto; height: auto; position: sticky; top: 0; z-index: 10; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+  .brand { border: 0; padding: 0 0 8px; margin: 0; }
+  nav { display: flex; overflow-x: auto; gap: 2px; scrollbar-width: none; }
+  nav a { padding: 7px 10px; white-space: nowrap; } nav a svg { display: none; }
+  .foot { display: none; }
+  .main { height: auto; }
+  .topbar, #view { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #view { overflow: visible; }
+  .run { margin-left: 0; width: 100%; }
+  .kpi .v { font-size: 24px; }
+}
+@media (max-width: 620px) { .chart svg { min-width: 600px; } }
 </style>
 </head>
 <body>
-<div class="top">
-  <div class="bar">
-    <div class="brand"><span class="au">Au</span><b>MCX Gold Relative Value</b></div>
-    <div class="meta" id="meta">Connecting…</div>
-    <nav id="nav" aria-label="Sections">
-      <a href="#/findings" data-r="findings">Findings</a>
-      <a href="#/today" data-r="today">Today</a>
-      <a href="#/backtest" data-r="backtest">Backtest</a>
-      <a href="#/data" data-r="data">Data</a>
-    </nav>
-  </div>
+<aside>
+  <div class="brand"><div class="logo">Au</div><div><b>Gold Spread Monitor</b><small>Binary Bridge · prototype</small></div></div>
+  <nav id="nav" aria-label="Sections">
+    <a href="#/overview" data-r="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Overview</a>
+    <a href="#/pairs" data-r="pairs"><svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>Pairs<span class="cnt" id="ncnt" hidden></span></a>
+    <a href="#/decisions" data-r="decisions"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Decision log</a>
+    <a href="#/research" data-r="research"><svg viewBox="0 0 24 24"><path d="M4 19h16M7 16V9M12 16V5M17 16v-4"/></svg>Research</a>
+    <a href="#/backtest" data-r="backtest"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 8-8M15 7h5v5"/></svg>Backtest</a>
+    <a href="#/data" data-r="data"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Data &amp; audit</a>
+    <a href="#/settings" data-r="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</a>
+  </nav>
+  <div class="foot" id="foot">Connecting to the API…</div>
+</aside>
+<div class="main">
+  <header class="topbar"><h1 id="ttl">Overview</h1><span class="dpill" id="dpill" hidden></span>
+    <div class="run"><span id="runinfo"></span><span class="datechip" id="datechip" hidden></span></div></header>
+  <main id="view" aria-live="polite"><p class="empty">Loading…</p></main>
 </div>
-<main id="view" aria-live="polite"><p class="muted">Loading…</p></main>
 <div class="tip" id="tip" hidden></div>
 
 <script>
@@ -183,14 +238,17 @@ const num = (v, d = 2) => fin(v) ? (v < 0 ? "−" : "") + Math.abs(v).toFixed(d)
 const inr = v => fin(v) ? (v < 0 ? "−₹" : "₹") + Math.abs(Math.round(v)).toLocaleString("en-IN") : "–";
 const lakh = v => fin(v) ? (v < 0 ? "−" : "") + "₹" + (Math.abs(v) / 1e5).toFixed(2) + " L" : "–";
 const pct = (v, d = 0) => fin(v) ? (v * 100).toFixed(d) + "%" : "–";
-const fdate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", {day: "2-digit", month: "short", year: "numeric"}) : "–";
+const int = v => fin(v) ? Math.round(v).toLocaleString("en-IN") : "–";
+// Indian units for big counts: 1,90,495 -> 1.9 L, 34,736 -> 34.7 K.
+const compact = v => !fin(v) ? "–" : v >= 1e5 ? (v / 1e5).toFixed(1) + " L" : v >= 1e3 ? (v / 1e3).toFixed(1) + " K" : int(v);
+const fdate = d => d ? new Date(String(d).slice(0, 10) + "T00:00:00").toLocaleDateString("en-GB", {day: "2-digit", month: "short", year: "numeric"}) : "–";
+const fexp = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", {day: "2-digit", month: "short"}).toUpperCase() : "–";
 const fmon = ms => new Date(ms).toLocaleDateString("en-GB", {month: "short", year: "2-digit"});
 const ms = d => new Date(d + "T00:00:00").getTime();
-const BANDS = [["|z| 0-1", "|z| below 1", "--o1"], ["|z| 1-2", "|z| 1 to 2", "--o2"], ["|z| 2-3", "|z| 2 to 3", "--o3"], ["|z| 3-inf", "|z| 3 and above", "--o4"]];
-const PREM = [["GOLDGUINEA", "--s1"], ["GOLDPETAL", "--s2"], ["GOLDTEN", "--s3"]];
-const STATUS_ICON = {ALERT: "●", TRADED: "●", NO_TRADE: "▲", QUIET: "○", SIGNAL: "○", WARMUP: "◌"};
-const chip = s => `<span class="chip ${esc(s)}"><span aria-hidden="true">${STATUS_ICON[s] || ""}</span>${esc(String(s).replace("_", " ").toLowerCase())}</span>`;
-const GATES = {gate_history: "Enough history", gate_stationary: "Spread mean-reverts (ADF)", gate_halflife: "Half-life fits the contract", gate_magnitude: "Gap beats the noise floor"};
+const isoOf = v => new Date(v).toISOString().slice(0, 10);
+const vs = p => p.replace("/", " vs ");
+const chip = (s, label) => `<span class="chip ${esc(s)}">${esc(label || String(s).replace("_", " "))}</span>`;
+const pairUrl = p => p.replace("/", "-");
 
 async function get(path) {
   const r = await fetch(API + path);
@@ -204,7 +262,7 @@ const once = path => cache[path] || (cache[path] = get(path).catch(e => { delete
 const tip = $("#tip");
 function showTip(x, y, head, rows) {
   tip.replaceChildren();
-  const h = document.createElement("div"); h.className = "h"; h.textContent = head; tip.append(h);
+  if (head) { const h = document.createElement("div"); h.className = "h"; h.textContent = head; tip.append(h); }
   for (const r of rows) {
     const row = document.createElement("div"); row.className = "r";
     if (r.color) { const i = document.createElement("i"); i.style.borderColor = `var(${r.color})`; if (r.dash) i.style.borderTopStyle = "dashed"; row.append(i); }
@@ -213,13 +271,13 @@ function showTip(x, y, head, rows) {
     tip.append(row);
   }
   tip.hidden = false;
-  const w = tip.offsetWidth, hgt = tip.offsetHeight;
-  tip.style.left = Math.min(x + 14, innerWidth - w - 8) + "px";
-  tip.style.top = Math.min(y + 14, innerHeight - hgt - 8) + "px";
+  tip.style.left = Math.min(x + 14, innerWidth - tip.offsetWidth - 8) + "px";
+  tip.style.top = Math.min(y + 14, innerHeight - tip.offsetHeight - 8) + "px";
 }
 const hideTip = () => { tip.hidden = true; };
+const tipAttr = (h, r) => ` data-tip="${esc(JSON.stringify({h, r}))}"`;
 
-// ------------------------------------------------------------------ chart helpers
+// ------------------------------------------------------------------ charts
 function niceTicks(lo, hi, n = 5) {
   if (lo === hi) { lo -= 1; hi += 1; }
   const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
@@ -229,19 +287,23 @@ function niceTicks(lo, hi, n = 5) {
   if (t[t.length - 1] < hi) t.push(t[t.length - 1] + step);
   return t;
 }
+function dateTicks(a, b) {
+  const t = [], d = new Date(a); d.setDate(1);
+  const months = (b - a) / 2.63e9, step = months > 40 ? 12 : months > 18 ? 6 : months > 8 ? 3 : 1;
+  d.setMonth(Math.ceil(d.getMonth() / step) * step);
+  while (d.getTime() <= b) { if (d.getTime() >= a) t.push(d.getTime()); d.setMonth(d.getMonth() + step); }
+  return t;
+}
 const CHARTS = {};
 let chartSeq = 0;
-/*
- * Line chart. series: [{name, color (css var), values: [[x, y]...], dash, width}]
- * opts: {W, H, xType: "date"|"num", xTicks, xFmt, yFmt, yUnit, refs: [{y, label}],
- *        band: {color, lo: [[x,y]], hi: [[x,y]]}, endLabels: bool, zero: bool, xLabel, tipHead}
- */
+/* series: [{name, color, values:[[x,y]], dash, width, markers, area}]
+   o: {W,H,xType,xTicks,xFmt,yFmt,tipX,tipY,refs:[{y,label}],band:{lo,hi},points:[{x,y,color,r}],endLabels,zero,xLabel,aria} */
 function lineChart(series, o) {
   const id = "c" + (++chartSeq), W = o.W || 720, H = o.H || 300;
-  const pl = o.pl || 52, pr = o.endLabels ? 112 : 16, pt = 12, pb = o.xLabel ? 44 : 28;
+  const pl = o.pl || 56, pr = o.endLabels ? 112 : 16, pt = 12, pb = o.xLabel ? 44 : 28;
   const pts = series.flatMap(s => s.values).concat(o.band ? o.band.lo.concat(o.band.hi) : []);
   const xs = [...new Set(series.flatMap(s => s.values.map(v => v[0])))].sort((a, b) => a - b);
-  if (!xs.length) return `<p class="muted">No data.</p>`;
+  if (!xs.length) return `<p class="empty">No data.</p>`;
   let ylo = Math.min(...pts.map(p => p[1]), ...(o.refs || []).map(r => r.y)), yhi = Math.max(...pts.map(p => p[1]), ...(o.refs || []).map(r => r.y));
   if (o.zero) { ylo = Math.min(ylo, 0); yhi = Math.max(yhi, 0); }
   const yt = niceTicks(ylo, yhi), y0 = yt[0], y1 = yt[yt.length - 1];
@@ -251,39 +313,32 @@ function lineChart(series, o) {
   const yFmt = o.yFmt || (v => v), xFmt = o.xFmt || (v => v);
   let g = "";
   for (const t of yt) g += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}"/><text x="${pl - 8}" y="${Y(t) + 4}" text-anchor="end">${esc(yFmt(t))}</text>`;
-  const xticks = o.xTicks || (o.xType === "date" ? dateTicks(x0, x1) : xs);
-  for (const t of xticks) g += `<text x="${X(t)}" y="${H - pb + 18}" text-anchor="middle">${esc(xFmt(t))}</text>`;
+  for (const t of o.xTicks || (o.xType === "date" ? dateTicks(x0, x1) : xs)) g += `<text x="${X(t)}" y="${H - pb + 18}" text-anchor="middle">${esc(xFmt(t))}</text>`;
   g += `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${H - pb}" y2="${H - pb}"/>`;
   if (o.zero && y0 < 0 && y1 > 0) g += `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${Y(0)}" y2="${Y(0)}"/>`;
   if (o.xLabel) g += `<text x="${pl + (W - pl - pr) / 2}" y="${H - 6}" text-anchor="middle">${esc(o.xLabel)}</text>`;
   if (o.band) {
     const up = o.band.hi.map(v => X(v[0]).toFixed(1) + "," + Y(v[1]).toFixed(1));
     const dn = o.band.lo.slice().reverse().map(v => X(v[0]).toFixed(1) + "," + Y(v[1]).toFixed(1));
-    g += `<polygon points="${up.concat(dn).join(" ")}" style="fill:var(--band)"/>`;
+    g += `<polygon points="${up.concat(dn).join(" ")}" style="fill:var(${o.band.color || "--band"})"/>`;
   }
   for (const r of o.refs || []) g += `<line class="ref" x1="${pl}" x2="${W - pr}" y1="${Y(r.y)}" y2="${Y(r.y)}"/><text class="lbl" x="${W - pr - 4}" y="${Y(r.y) - 6}" text-anchor="end">${esc(r.label)}</text>`;
   for (const s of series) {
+    if (s.area) g += `<path d="${path(s.values)} L${X(s.values[s.values.length - 1][0])},${H - pb} L${X(s.values[0][0])},${H - pb}Z" style="fill:var(${s.area})"/>`;
     g += `<path d="${path(s.values)}" fill="none" style="stroke:var(${s.color})" stroke-width="${s.width || 2}" stroke-linejoin="round" stroke-linecap="round"${s.dash ? ' stroke-dasharray="5 4"' : ""}/>`;
-    if (s.markers) for (const v of s.values) g += `<circle cx="${X(v[0])}" cy="${Y(v[1])}" r="4" style="fill:var(${s.color});stroke:var(--surface)" stroke-width="2"/>`;
+    if (s.markers) for (const v of s.values) g += `<circle cx="${X(v[0])}" cy="${Y(v[1])}" r="4" style="fill:var(${s.color});stroke:var(--card)" stroke-width="2"/>`;
   }
+  for (const p of o.points || []) g += `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${p.r || 4}" style="fill:var(${p.color});stroke:var(--card)" stroke-width="2"/>`;
   if (o.endLabels) {
-    const ends = series.map(s => ({s, y: Y(s.values[s.values.length - 1][1])})).sort((a, b) => a.y - b.y);
+    const ends = series.filter(s => !s.noLabel).map(s => ({s, y: Y(s.values[s.values.length - 1][1])})).sort((a, b) => a.y - b.y);
     for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
     for (const e of ends) g += `<text class="lbl" x="${W - pr + 8}" y="${e.y + 4}">${esc(e.s.label || e.s.name)}</text>`;
   }
   g += `<line class="xh" id="${id}-xh" x1="0" x2="0" y1="${pt}" y2="${H - pb}" visibility="hidden"/>`;
-  g += `<rect x="${pl}" y="${pt}" width="${W - pl - pr}" height="${H - pt - pb}" fill="transparent" data-chart="${id}" tabindex="0" aria-label="${esc(o.aria || "chart")}; use the table view for exact values"/>`;
-  CHARTS[id] = {series, xs, X, W, pl, pr, xFmt: o.tipX || xFmt, yFmt: o.tipY || yFmt};
+  g += `<rect x="${pl}" y="${pt}" width="${W - pl - pr}" height="${H - pt - pb}" fill="transparent" data-chart="${id}" tabindex="0" aria-label="${esc(o.aria || "chart")}"/>`;
+  CHARTS[id] = {series, xs, X, W, xFmt: o.tipX || xFmt, yFmt: o.tipY || yFmt, extra: o.tipExtra};
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria || "")}">${g}</svg></div>`;
 }
-function dateTicks(a, b) {
-  const t = [], d = new Date(a); d.setDate(1);
-  const months = (b - a) / 2.63e9, step = months > 40 ? 12 : months > 18 ? 6 : months > 8 ? 3 : 1;
-  d.setMonth(Math.ceil(d.getMonth() / step) * step);
-  while (d.getTime() <= b) { if (d.getTime() >= a) t.push(d.getTime()); d.setMonth(d.getMonth() + step); }
-  return t;
-}
-// Crosshair: snap to the nearest x, list every series at that x.
 function chartMove(e, rect) {
   const c = CHARTS[rect.dataset.chart]; if (!c) return;
   const svg = rect.ownerSVGElement, box = svg.getBoundingClientRect(), sx = (e.clientX - box.left) * c.W / box.width;
@@ -291,7 +346,8 @@ function chartMove(e, rect) {
   for (const x of c.xs) { const d = Math.abs(c.X(x) - sx); if (d < bd) { bd = d; best = x; } }
   const xh = svg.querySelector("#" + rect.dataset.chart + "-xh");
   xh.setAttribute("x1", c.X(best)); xh.setAttribute("x2", c.X(best)); xh.setAttribute("visibility", "visible");
-  const rows = c.series.map(s => { const v = s.values.find(p => p[0] === best); return v ? {color: s.color, dash: s.dash, value: c.yFmt(v[1]), label: s.name} : null; }).filter(Boolean);
+  const rows = c.series.filter(s => !s.noTip).map(s => { const v = s.values.find(p => p[0] === best); return v ? {color: s.color, dash: s.dash, value: c.yFmt(v[1]), label: s.name} : null; }).filter(Boolean);
+  if (c.extra) rows.push(...c.extra(best));
   showTip(e.clientX, e.clientY, c.xFmt(best), rows);
 }
 document.addEventListener("pointermove", e => {
@@ -302,228 +358,313 @@ document.addEventListener("pointermove", e => {
   document.querySelectorAll(".xh").forEach(x => x.setAttribute("visibility", "hidden"));
   hideTip();
 });
-document.addEventListener("focusin", e => {
-  const t = e.target;
-  if (t.dataset && t.dataset.chart) { const r = t.getBoundingClientRect(); chartMove({clientX: r.right - 10, clientY: r.top + 10}, t); }
-});
+document.addEventListener("focusin", e => { const t = e.target; if (t.dataset && t.dataset.chart) { const r = t.getBoundingClientRect(); chartMove({clientX: r.right - 10, clientY: r.top + 10}, t); } });
 document.addEventListener("focusout", hideTip);
-const tipAttr = (h, r) => ` data-tip="${esc(JSON.stringify({h, r}))}"`;
 const legend = items => `<div class="legend">${items.map(i => `<span><i class="${i.kind || ""}" style="${i.kind === "dot" || i.kind === "box" ? "background" : "border-color"}:var(${i.color})"></i>${esc(i.name)}</span>`).join("")}</div>`;
 const tableView = (head, rows) => `<details><summary>Table view</summary><div class="tw"><table><tr>${head.map((h, i) => `<th class="${i ? "num" : ""}">${esc(h)}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${i ? "num" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div></details>`;
 
+// ------------------------------------------------------------------ shared
+const ENTRY_SESSIONS = 15;     // BacktestConfig.min_sessions_to_expiry_entry
+function pairChecks(p) {
+  const g = p.gates || {}, r = p.risk || {}, legs = p.legs || [];
+  const minLeft = Math.min(...legs.map(l => fin(l.sessions_to_expiry) ? l.sessions_to_expiry : Infinity));
+  const liqOk = legs.length === 2 && legs.every(l => l.tradable !== false && l.liquidity !== "RED");
+  // Margin asks "could the account fund it?", not "was there a signal?": the risk
+  // board reports "no signal" for quiet pairs but still prices the position.
+  const fundable = fin(r.utilisation_if_added) ? r.utilisation_if_added < 0.8 && !/breached|low/.test(r.buffer_state || "") : null;
+  const marginOk = /^(may add|add reduced size)$/.test(r.action || "") ? true : r.action === "no signal" ? fundable : r.action ? false : null;
+  return [
+    {k: "History", ok: g.gate_history, d: g.gate_history ? "enough trailing sessions to score this pair" : "not enough history to score yet"},
+    {k: "Mean-reverting", ok: g.gate_stationary, d: `ADF t ${num(p.adf_t)} (needs below −2.57)` + (g.gate_stationary ? "" : " · spread drifts instead of reverting")},
+    {k: "Half-life", ok: g.gate_halflife, d: `${fin(p.halflife) ? num(p.halflife, 1) + " sessions" : "∞"} to close half the gap (limit 30)`},
+    {k: "Size", ok: g.gate_magnitude, d: `|z| ${num(Math.abs(p.z))} vs ${p.z_entry ?? 2}; extra ${bp(p.dislocation_bp)} vs 15 bp minimum and the noise floor`},
+    {k: "Liquidity", ok: liqOk, d: legs.map(l => `${l.symbol} ${int(l.avg_volume_20)} lots/day (${l.liquidity || "–"})`).join(" · ")},
+    {k: "Lifecycle", ok: Number.isFinite(minLeft) ? minLeft >= ENTRY_SESSIONS : null, d: Number.isFinite(minLeft) ? `${minLeft} sessions to the nearer expiry (need ${ENTRY_SESSIONS}); exit before tender` + (legs.some(l => l.front_month === false) ? ". Priced in the next contract: the front month is too close to expiry to enter." : "") : "no contract with enough runway to enter"},
+    {k: "Margin", ok: marginOk, d: r.action ? `${inr(r.marginal_margin)} if added · ${pct(r.utilisation_if_added, 1)} of capital · buffer ${esc(r.buffer_state || "–")}${r.action !== "no signal" ? " · " + esc(r.action) + (r.reason ? ", " + esc(r.reason) : "") : ""}` : "not priced"},
+  ];
+}
+const checkRow = c => `<div class="check ${c.ok === false ? "fail" : ""}"><span class="ico ${c.ok === true ? "good" : c.ok === false ? "bad" : "off"}" aria-hidden="true">${c.ok === true ? "✓" : c.ok === false ? "✕" : "–"}</span><b>${esc(c.k)} <span class="sub">${c.ok === true ? "pass" : c.ok === false ? "fail" : "n/a"}</span></b><div class="d">${c.d}</div></div>`;
+
 // ------------------------------------------------------------------ views
-const V = {};
+const V = {}, TITLES = {overview: "Overview", pairs: "Pairs", pair: "Pair detail", decisions: "Decision log", research: "Research", backtest: "Backtest", data: "Data & audit", settings: "Settings"};
 
-V.findings = async () => {
-  const R = await once("/api/research"), p = R.performance || {}, c = R.costs || {}, w = R.window || {};
-  const cost = fin(c.gross_bp) && fin(c.net_bp) ? c.gross_bp - c.net_bp : null;
-  const es = R.event_study, ok = R.verdict && R.verdict.edge_survives_costs;
-  let html = `<section class="hero">
-    <h1>${ok ? "An edge survives costs" : "The dislocation is real. The edge does not survive costs."}</h1>
-    <p class="lede">Four MCX gold futures, put on one basis (₹ per 10 g of fine gold), with carry and each coin's slow-moving premium removed. What is left is tested on ${(w.sessions || 0).toLocaleString("en-IN")} sessions, ${fdate(w.start)} to ${fdate(w.end)}.</p>
-    <div class="verdict ${ok ? "ok" : ""}"><span class="ic" aria-hidden="true">${ok ? "✓" : "✕"}</span><div><b>${esc(R.verdict ? R.verdict.headline : "")}</b><br><span class="note">${p.n_trades || 0} walk-forward trades, filled at the next session's settlement, four bid-ask crossings each.</span></div></div>
-    <div class="tiles">
-      <div class="tile"><div class="l">Gross per trade</div><div class="v">${bp(c.gross_bp)}</div><div class="s">what convergence paid</div></div>
-      <div class="tile"><div class="l">Costs per trade</div><div class="v">${fin(cost) ? cost.toFixed(1) + " bp" : "–"}</div><div class="s">fees, taxes, spread, slippage</div></div>
-      <div class="tile"><div class="l">Net per trade</div><div class="v ${c.net_bp < 0 ? "neg" : "posv"}">${bp(c.net_bp)}</div><div class="s">hit rate ${pct(p.hit_rate_net)}</div></div>
-      <div class="tile"><div class="l">Breakeven spread</div><div class="v">${num(c.breakeven_half_spread_bp, 1)} bp</div><div class="s">per leg, per crossing</div></div>
-    </div></section>`;
-
-  if (es && es.rows && es.rows.length) {
-    const hz = [...new Set(es.rows.map(r => r.horizon))].sort((a, b) => a - b);
-    const series = BANDS.map(([k, name, color]) => ({name, label: name.replace("|z| ", ""), color,
-      values: es.rows.filter(r => r.z_band === k).map(r => [r.horizon, r.mean_conv_bp]), markers: true}));
-    const top = es.rows.filter(r => r.z_band === "|z| 3-inf");
-    const clears = es.rows.filter(r => r.ci_clears_costs);
-    html += `<section class="card"><header><span class="q">1 · Is the signal real?</span><h2>Wide spreads do close, and wider ones close further</h2>
-      <p>Average convergence after a dislocation, by how extreme it was (|z|) and how long you wait. Every pair-day counts, tradable or not. The shaded band is the 95% bootstrap interval for |z| ≥ 3.</p></header>
-      ${legend(series.map(s => ({name: s.name, color: s.color}))
-        .concat([{name: "round-trip cost at " + es.half_spread_bp + " bp spread", color: "--ink-2", kind: "dash"}]))}
-      ${lineChart(series, {W: 760, H: 320, xTicks: hz, xFmt: v => v + "", tipX: v => "after " + v + " session" + (v === 1 ? "" : "s"), yFmt: v => v + " bp", tipY: v => bp(v),
-        refs: [{y: es.round_trip_bp, label: "cost " + es.round_trip_bp.toFixed(0) + " bp"}], zero: true, xLabel: "sessions held",
-        band: {lo: top.map(r => [r.horizon, r.boot_ci_lo]), hi: top.map(r => [r.horizon, r.boot_ci_hi])}, endLabels: true,
-        aria: "Mean convergence in basis points by horizon for four |z| bands, with the round-trip cost line"})}
-      <p class="note">${clears.length ? `Only ${clears.map(r => esc(r.z_band.replace("|z| 3-inf", "|z| ≥ 3")) + " held " + r.horizon + " sessions").join(", ")} clears the cost line with 95% confidence.` : "No band and horizon clears the cost line with 95% confidence."} The backtest rarely holds that long: ${R.exit_reasons ? `${R.exit_reasons.stop || 0} of ${p.n_trades} trades were stopped out after the spread widened further` : "most trades exit early"}.</p>
-      ${tableView(["band", "sessions", "n", "mean bp", "95% CI", "NW t", "net of cost"], es.rows.map(r => [r.z_band, r.horizon, r.n, num(r.mean_conv_bp, 1), num(r.boot_ci_lo, 1) + " to " + num(r.boot_ci_hi, 1), num(r.t_newey_west, 2), num(r.net_conv_bp, 1)]))}
-    </section>`;
-  }
-
-  if (c.sweep && c.sweep.length && fin(c.gross_bp)) {
-    const stat = c.sweep[0].statutory_bp, per = (c.sweep[0].round_trip_bp - stat) / c.sweep[0].half_spread_bp_per_leg;
-    const xsw = [0, 1, 2, 3, 4, 5, 6, 8, 10], line = xsw.map(x => [x, stat + per * x]);
-    const be = c.breakeven_half_spread_bp;
-    html += `<section class="card"><header><span class="q">2 · Can you trade it?</span><h2>Costs pass the gross edge almost immediately</h2>
-      <p>A spread trade crosses the bid-ask four times. Statutory charges alone are ${stat.toFixed(1)} bp. Bhavcopy carries no order book, so the bid-ask spread is an assumption: the line shows total cost as it widens.</p></header>
-      ${legend([{name: "round-trip cost", color: "--s1"}, {name: "average gross edge per trade", color: "--ink-2", kind: "dash"}])}
-      ${lineChart([{name: "round-trip cost", color: "--s1", values: line}], {W: 760, H: 280, xTicks: [0, 1, 2, 4, 6, 8, 10], xFmt: v => v + " bp", tipX: v => "half-spread " + v + " bp per leg", yFmt: v => v + " bp", tipY: v => num(v, 1) + " bp",
-        refs: [{y: c.gross_bp, label: "gross edge " + c.gross_bp.toFixed(1) + " bp"}], zero: true, xLabel: "assumed half-spread per leg (bp)",
-        aria: "Round-trip cost against assumed half-spread, with the gross edge as a reference line"})}
-      <p class="note">The lines cross at <b>${num(be, 1)} bp per leg</b>. The strategy only pays if the book is tighter than that on both legs, on the days it wants to trade. On GOLDGUINEA, ${(R.coverage || []).find(x => x.symbol === "GOLDGUINEA")?.untradeable_rows ?? "many"} sessions had no genuine trade at all.</p>
-      ${tableView(["half-spread per leg", "statutory", "execution", "round trip"], c.sweep.map(r => [r.half_spread_bp_per_leg + " bp", r.statutory_bp, r.execution_bp, r.round_trip_bp]))}
-    </section>`;
-  }
-
-  if (R.premiums && R.premiums.length) {
-    const series = PREM.map(([s, color]) => ({name: s, color, values: R.premiums.filter(r => r.symbol === s && fin(r.premium_bp)).map(r => [ms(r.date), r.premium_bp])})).filter(s => s.values.length);
-    const last = Object.fromEntries(series.map(s => [s.name, s.values[s.values.length - 1][1]]));
-    html += `<section class="card"><header><span class="q">3 · What is not signal</span><h2>Coin contracts trade at a premium that drifts slowly, and the model removes it</h2>
-      <p>Premium over the GOLDM 995 bar (pinned at zero), re-estimated weekly from the previous 120 sessions only. It moves over months, not days: minting costs, delivery demand and who trades each contract all shift it. A naive parity spread would read this drift as mispricing and bet against it.</p></header>
-      ${legend(series.map(s => ({name: s.name, color: s.color})))}
-      ${lineChart(series, {W: 760, H: 280, xType: "date", xFmt: fmon, tipX: v => fdate(new Date(v).toISOString().slice(0, 10)), yFmt: v => v + " bp", tipY: v => bp(v), zero: true, endLabels: true,
-        aria: "Structural premium in basis points over time for GOLDGUINEA, GOLDPETAL and GOLDTEN versus GOLDM"})}
-      <p class="note">Latest: ${series.map(s => `${esc(s.name)} ${bp(last[s.name])}`).join(" · ")}. The swings are large: GOLDPETAL ranged from about ${bp(Math.min(...(series.find(s => s.name === "GOLDPETAL")?.values || [[0, 0]]).map(v => v[1])), 0)} to ${bp(Math.max(...(series.find(s => s.name === "GOLDPETAL")?.values || [[0, 0]]).map(v => v[1])), 0)}. Left in, they would dwarf the 20–70 bp dislocations the strategy trades.</p>
-    </section>`;
-  }
-
-  if (R.by_year && R.by_year.length) html += `<section class="grid2">${yearCard(R)}${exitCard(R, p)}</section>`;
-  html += `<section class="card"><header><span class="q">How we know the engine is honest</span><h2>Checks that run on every change</h2></header>
-    <ul class="note" style="margin:0;padding-left:18px;display:grid;gap:4px">
-      <li><b>Null world:</b> on synthetic data with no relative value, the strategy must show no edge. Profit there would mean a look-ahead or costing bug.</li>
-      <li><b>Known truth:</b> a synthetic world with an injected premium and dislocation, which the model must recover.</li>
-      <li><b>No look-ahead:</b> cutting off future data must not change any past signal.</li>
-      <li><b>Next-session fills:</b> a signal from today's settlement is filled tomorrow, never at the price that produced it.</li>
-    </ul><p class="note">All run in the test suite on every push to GitHub.</p></section>`;
-  return html;
+V.overview = async () => {
+  const [o, dq] = await Promise.all([once("/api/overview"), once("/api/data-quality")]), m = o.meta, s = o.summary;
+  const last = dq.archive && dq.archive.rows && dq.archive.rows[0];
+  const dateOk = !last || last.status === "LOADED";
+  const goldRows = (o.contracts || []).length;
+  const lvl = l => l ? chip(l) : "";
+  return `
+  <div class="kpis">
+    <div class="kpi"><div class="l">Bhavcopy</div><div class="v">${fdate(m.asof)}</div><div class="s">${chip(dateOk ? "ok" : "RED", dateOk ? "date check ok" : "date mismatch")}${last ? `${last.gold_rows} gold rows` : ""}${dq.archive ? `, ${dq.archive.rejected} rejected` : ""}</div></div>
+    <div class="kpi"><div class="l">Alerts today</div><div class="v c-good">${s.ALERT}</div><div class="s">${s.ALERT ? "sent to Telegram on change" : "all gates and risk checks must pass"}</div></div>
+    <div class="kpi"><div class="l">No trade today</div><div class="v c-warn">${s.NO_TRADE}</div><div class="s">unusual, logged with the gate that refused</div></div>
+    <div class="kpi"><div class="l">Quiet pairs</div><div class="v">${s.QUIET}${s.WARMUP ? ` <span class="sub">+${s.WARMUP} warming up</span>` : ""}</div><div class="s">nothing unusual</div></div>
+  </div>
+  <div class="grid2 wide">
+    <div class="card"><h2>Contracts today <small>front month, converted to ₹ per gram of pure gold</small></h2><div class="tw"><table>
+      <tr><th>Contract</th><th>Expiry</th><th class="num">Close (₹)</th><th class="num">Quoted per</th><th class="num">Purity</th><th class="num">₹ / g pure</th><th>Liquidity</th></tr>
+      ${o.contracts.map(c => `<tr${tipAttr(c.symbol, [{value: `₹${int(c.close)} ÷ (${c.quote_base_g} g × ${Math.round(c.purity * 1000)}/1000) = ₹${int(c.inr_per_g_fine)} per g`}])}>
+        <td><b>${esc(c.symbol)}</b></td><td class="nw">${fexp(c.expiry_date)}</td><td class="num">${int(c.close)}</td><td class="num">${c.quote_base_g} g</td><td class="num">${Math.round(c.purity * 1000)}</td>
+        <td class="num"><b>${int(c.inr_per_g_fine)}</b></td><td class="nw">${lvl(c.liquidity)} <span class="sub">${compact(c.avg_volume_20)}</span></td></tr>`).join("")}
+    </table></div><p class="note">Same metal, four quote formats. After conversion they sit within ${o.contracts.length ? num((Math.max(...o.contracts.map(c => c.inr_per_g_fine)) / Math.min(...o.contracts.map(c => c.inr_per_g_fine)) - 1) * 1e4, 0) : "–"} bp of each other. Liquidity: average lots traded per day over 20 sessions (K = thousand, L = lakh), against each contract's minimum (green ≥ 2×, yellow ≥ 1×).</p></div>
+    <div class="card"><h2>Gold, ₹ per gram of pure gold <small>fitted level · last ${o.gold_level.length} sessions</small></h2>
+      ${lineChart([{name: "₹ per g", color: "--gold", area: "--gold-bg", values: o.gold_level.map(g => [ms(g.date), g.inr_per_10g_fine / 10])}],
+        {W: 460, H: 300, xType: "date", xFmt: fmon, tipX: v => fdate(isoOf(v)), yFmt: v => int(v), tipY: v => "₹" + int(v), aria: "Fitted gold level in rupees per gram of fine gold"})}</div>
+  </div>
+  <div class="verdict ${o.verdict.edge_survives_costs ? "ok" : ""}"><div class="t"><span class="ico ${o.verdict.edge_survives_costs ? "good" : "bad"}" aria-hidden="true">${o.verdict.edge_survives_costs ? "✓" : "✕"}</span><div><b>Research verdict:</b> ${esc(o.verdict.headline)}</div></div><a class="btn" href="#/research">See the evidence →</a></div>`;
 };
 
+V.pairs = async () => {
+  const [ps, o] = await Promise.all([once("/api/pairs"), once("/api/overview")]), s = o.summary, ze = o.meta.z_entry;
+  const leg = sym => (o.contracts.find(c => c.symbol === sym) || {}).expiry_date;
+  const posz = z => Math.max(0, Math.min(100, (z + 4) / 8 * 100));
+  return `<div class="banner"><b>${fdate(o.meta.asof)}:</b> ${s.ALERT} alert, ${s.NO_TRADE} no-trade, ${s.QUIET} quiet${s.WARMUP ? `, ${s.WARMUP} warming up` : ""}. The normal gap is each pair's own trailing centre, which already contains carry between different expiries and each coin's premium; only the extra is scored.</div>
+  <div class="card"><div class="tw"><table>
+    <tr><th>Pair</th><th>Contracts</th><th class="num">Gap</th><th class="num">Normal</th><th class="num">Extra</th><th>z, −4 to +4</th><th class="num">z (t−1)</th><th>Decision</th><th>Reason</th></tr>
+    ${ps.map(p => `<tr class="go" tabindex="0" data-go="pair/${esc(pairUrl(p.pair))}"><td><b>${esc(vs(p.pair))}</b><div class="sub">${p.maturity_matched ? "same expiry window" : "carry-bridged"}</div></td>
+      <td class="sub nw">${(p.legs || []).length === 2 ? p.legs.map(l => fexp(l.expiry_date)).join(" / ") : fexp(leg(p.sym_a)) + " / " + fexp(leg(p.sym_b))}</td><td class="num">${bp(p.spread_bp)}</td><td class="num">${bp(p.centre_bp)}</td><td class="num"><b>${bp(p.dislocation_bp)}</b></td>
+      <td><div class="zt" aria-hidden="true"><div class="track"></div><div class="zone" style="left:0;width:${posz(-ze)}%"></div><div class="zone" style="left:${posz(ze)}%;right:0"></div><div class="mid" style="left:50%"></div>${fin(p.z) ? `<div class="dot ${Math.abs(p.z) >= ze ? "hot" : ""}" style="left:${posz(p.z)}%"></div>` : ""}</div></td>
+      <td class="num"><b>${num(p.z)}</b></td><td>${chip(p.status)}</td><td class="sub">${esc(p.reason)}</td></tr>`).join("")}
+  </table></div></div>`;
+};
+
+V.pair = async (id) => {
+  const p = await get("/api/pairs/" + encodeURIComponent(id)), ze = p.z_entry;
+  const full = (await once("/api/risk")).find(r => r.pair === p.pair) || {};
+  p.risk = {...full}; p.legs = p.legs || [];
+  const ov = await once("/api/overview");
+  p.legs = p.legs.length ? p.legs : [p.sym_a, p.sym_b].map(s => ov.contracts.find(c => c.symbol === s) || {symbol: s});
+  const pairs = await once("/api/pairs"), meta = pairs.find(x => x.pair === p.pair) || {};
+  p.legs = meta.legs || p.legs; p.trade = meta.trade; p.telegram = meta.telegram; p.expiry_gap_days = meta.expiry_gap_days;
+  const hs = (p.history || []).filter(x => fin(x.spread_bp) && fin(x.centre) && fin(x.scale));
+  let chart = `<p class="empty">Not enough history yet.</p>`;
+  if (hs.length > 2) {
+    const extra = hs.map(x => [ms(x.date), x.spread_bp - x.centre]);
+    const hot = hs.filter(x => fin(x.z) && Math.abs(x.z) >= ze).map(x => ({x: ms(x.date), y: x.spread_bp - x.centre, color: x.signal_ok ? "--good" : "--gold", r: x.signal_ok ? 5 : 3.5}));
+    const lastP = extra[extra.length - 1];
+    chart = legend([{name: "extra gap", color: "--s1"}, {name: `entry band, ±${ze} × trailing scale`, color: "--band", kind: "box"}, {name: "unusual, gate refused", color: "--gold", kind: "dot"}, {name: "unusual, all gates passed", color: "--good", kind: "dot"}])
+      + lineChart([{name: "extra gap", color: "--s1", values: extra}], {W: 760, H: 290, xType: "date", xFmt: fmon, tipX: v => fdate(isoOf(v)), yFmt: v => v + " bp", tipY: v => bp(v), zero: true,
+        band: {lo: hs.map(x => [ms(x.date), -ze * x.scale]), hi: hs.map(x => [ms(x.date), ze * x.scale])},
+        points: hot.concat([{x: lastP[0], y: lastP[1], color: "--s1", r: 5}]),
+        tipExtra: x => { const h = hs.find(r => ms(r.date) === x); return h ? [{value: "z " + num(h.z), label: Math.abs(h.z) >= ze ? (h.signal_ok ? "all gates passed" : "unusual, refused") : ""}] : []; },
+        aria: "Extra gap over time against the entry band"});
+  }
+  const nAbs = Math.abs(p.centre_bp || 0), xAbs = Math.abs(p.dislocation_bp || 0), tot = nAbs + xAbs || 1;
+  const hotNow = fin(p.z) && Math.abs(p.z) >= ze;
+  const checks = pairChecks({...p, z_entry: ze});
+  const failed = checks.filter(c => c.ok === false).map(c => c.k);
+  let decision;
+  if (p.status === "ALERT" && p.trade) {
+    decision = `<div class="decision"><div class="h">Alert · suggested pair trade</div>${p.trade.legs.map(l => `<div class="leg"><span>${l.side === "SELL" ? "Sell" : "Buy"} ${l.lots ?? "–"} × <b>${esc(l.symbol)}</b> ${fexp(l.expiry)}</span><b>${fin(l.fine_g) ? num(l.fine_g, 1) + " g pure" : ""}</b></div>`).join("")}
+      <div class="sub">Margin about ${inr(p.trade.margin)} · exit when |z| falls to 0.5, at |z| 4.5, or 4 sessions before the nearer expiry</div></div>`;
+  } else if (p.status === "NO_TRADE") {
+    decision = `<div class="decision no"><div class="h">No trade · ${esc(failed.join(", ") || "gate")}</div><div>${esc(p.reason)}</div>${p.trade ? `<div class="sub">Would have been: ${p.trade.legs.map(l => `${l.side.toLowerCase()} ${esc(l.symbol)}`).join(", ")}</div>` : ""}</div>`;
+  } else {
+    decision = `<div class="decision quiet"><div class="h">${p.status === "WARMUP" ? "Warming up" : "Quiet"}</div><div>${esc(p.reason)}. Nothing to do; the pair is inside its normal range.</div></div>`;
+  }
+  return `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><a class="btn" href="#/pairs">← Pairs</a><h2 style="margin:0;font-size:24px;letter-spacing:-.02em">${esc(vs(p.pair))}</h2>
+    <span class="sub" style="font-size:14px">${p.legs.map(l => `${esc(l.symbol)} ${fexp(l.expiry_date)}`).join(" vs ")} · expiry gap ${p.expiry_gap_days ?? "–"} days</span>${chip(p.status)}</div>
+  <div class="grid2">
+    <div class="card"><h2>Extra gap vs its own history <small>last ${hs.length} sessions · band uses data to the previous session only</small></h2>${chart}
+      <p>Gap today <b>${bp(p.spread_bp)}</b> = normal <b>${bp(p.centre_bp)}</b> + extra <b>${bp(p.dislocation_bp)}</b></p>
+      <div class="decomp" aria-label="Gap split into normal and extra"><div class="n" style="flex:${nAbs / tot}">normal ${bp(p.centre_bp)}</div><div class="x ${hotNow ? "" : "calm"}" style="flex:${Math.max(xAbs / tot, .18)}">extra ${bp(p.dislocation_bp)} · z = ${num(p.z)}</div></div>
+      <p class="note">${p.maturity_matched ? "Same expiry window, so the normal gap is mostly each coin's premium." : "Different expiry windows, so the normal gap includes carry between the two expiries as well as each coin's premium."}</p></div>
+    <div class="card"><h2>Checks</h2><div class="checks">${checks.map(checkRow).join("")}</div>${decision}</div>
+  </div>
+  <div class="card"><h2>Telegram message <small>what the bot sends to the trader</small></h2>
+    ${p.telegram ? `<pre class="tg">${esc(p.telegram)}</pre>` : `<p class="note">No message for this pair today. The bot only writes when a pair becomes an alert or an alert clears, so an unchanged state never re-sends.</p>`}</div>`;
+};
+
+// Short codes like a trader's log; the full sentence is in the hover.
+const REASON = {"not enough history": "HISTORY", "spread not stationary": "NOT MEAN-REVERTING", "half-life too long": "HALF-LIFE", "dislocation too small": "SIZE"};
+const reasonCode = r => r.status === "TRADED" ? "ENTERED NEXT SESSION" : r.status === "SIGNAL" ? "NOT ENTERED · BOOK FULL OR SIZE" :
+  String(r.reason || "").split(", ").map(x => REASON[x] || x.toUpperCase()).join(", ");
+V.decisions = async () => {
+  const [d, o] = await Promise.all([once("/api/decisions?limit=300"), once("/api/overview")]), c = d.counts;
+  const win = o.meta.decision_window_sessions || 120, pairsN = o.summary.pairs || 6, checks = win * pairsN;
+  const unusual = d.total;
+  return `<div class="kpis">
+    <div class="kpi"><div class="l">Checks run</div><div class="v">${int(checks)}</div><div class="s">${pairsN} pairs × ${win} sessions</div></div>
+    <div class="kpi"><div class="l">Quiet</div><div class="v">${pct(1 - unusual / (checks || 1), 1)}</div><div class="s">nothing unusual</div></div>
+    <div class="kpi"><div class="l">Unusual, no trade</div><div class="v c-warn">${c.NO_TRADE || 0}</div><div class="s">each with the gate that refused</div></div>
+    <div class="kpi"><div class="l">Passed every gate</div><div class="v c-good">${(c.TRADED || 0) + (c.SIGNAL || 0)}</div><div class="s">${c.TRADED || 0} entered by the backtest next session</div></div>
+  </div>
+  <div class="card"><h2>Decision log <small>every unusual pair-session, with the check that decided it</small></h2><div class="tw"><table>
+    <tr><th>Date</th><th>Pair</th><th class="num">z</th><th class="num">Gap</th><th class="num">Extra</th><th>Decision</th><th>Reason</th><th></th></tr>
+    ${d.items.map(r => `<tr><td class="nw">${fdate(r.date)}</td><td class="nw"><b>${esc(vs(r.pair))}</b></td><td class="num">${num(r.z)}</td><td class="num">${bp(r.spread_bp)}</td><td class="num"><b>${bp(r.dislocation_bp)}</b></td>
+      <td>${chip(r.status, r.status === "SIGNAL" ? "passed" : null)}</td><td class="sub"${tipAttr("", [{value: r.reason}])}>${esc(reasonCode(r))}</td><td class="num"><a class="btn" href="#/pair/${esc(pairUrl(r.pair))}">View pair</a></td></tr>`).join("") || `<tr><td colspan="8" class="empty">Nothing unusual in the window.</td></tr>`}
+  </table></div></div>`;
+};
+
+V.research = async () => {
+  const R = await once("/api/research"), p = R.performance || {}, c = R.costs || {}, w = R.window || {}, es = R.event_study, ok = R.verdict && R.verdict.edge_survives_costs;
+  const cost = fin(c.gross_bp) && fin(c.net_bp) ? c.gross_bp - c.net_bp : null;
+  let html = `<div class="verdict ${ok ? "ok" : ""}"><div class="t"><span class="ico ${ok ? "good" : "bad"}" aria-hidden="true">${ok ? "✓" : "✕"}</span><div><b>${ok ? "An edge survives costs." : "The dislocation is real. The edge does not survive costs."}</b> ${esc(R.verdict.headline)} · ${int(w.sessions)} sessions, ${fdate(w.start)} to ${fdate(w.end)}.</div></div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">Gross per trade</div><div class="v">${bp(c.gross_bp)}</div><div class="s">what convergence paid</div></div>
+    <div class="kpi"><div class="l">Costs per trade</div><div class="v">${fin(cost) ? cost.toFixed(1) + " bp" : "–"}</div><div class="s">fees, taxes, spread, slippage</div></div>
+    <div class="kpi"><div class="l">Net per trade</div><div class="v ${c.net_bp < 0 ? "c-bad" : "c-good"}">${bp(c.net_bp)}</div><div class="s">${p.n_trades} trades · hit rate ${pct(p.hit_rate_net)}</div></div>
+    <div class="kpi"><div class="l">Breakeven spread</div><div class="v">${num(c.breakeven_half_spread_bp, 1)} bp</div><div class="s">per leg, per crossing</div></div>
+  </div>`;
+  if (es && es.rows && es.rows.length) {
+    const BANDS = [["|z| 0-1", "|z| below 1", "--o1"], ["|z| 1-2", "|z| 1 to 2", "--o2"], ["|z| 2-3", "|z| 2 to 3", "--o3"], ["|z| 3-inf", "|z| 3 and above", "--o4"]];
+    const hz = [...new Set(es.rows.map(r => r.horizon))].sort((a, b) => a - b);
+    const series = BANDS.map(([k, name, color]) => ({name, label: name.replace("|z| ", ""), color, markers: true, values: es.rows.filter(r => r.z_band === k).map(r => [r.horizon, r.mean_conv_bp])}));
+    const top = es.rows.filter(r => r.z_band === "|z| 3-inf"), clears = es.rows.filter(r => r.ci_clears_costs);
+    html += `<div class="card"><h2>1 · Wide spreads do close, and wider ones close further</h2>
+      <p class="note">Average convergence after a dislocation, by |z| band and sessions waited. Every pair-day counts, tradable or not. Shaded: 95% bootstrap interval for |z| ≥ 3. Dashed: round-trip cost at a ${es.half_spread_bp} bp spread.</p>
+      ${legend(series.map(s => ({name: s.name, color: s.color})).concat([{name: "round-trip cost", color: "--ink-2", kind: "dash"}]))}
+      ${lineChart(series, {W: 820, H: 320, xTicks: hz, tipX: v => "after " + v + " session" + (v === 1 ? "" : "s"), yFmt: v => v + " bp", tipY: v => bp(v), refs: [{y: es.round_trip_bp, label: "cost " + es.round_trip_bp.toFixed(0) + " bp"}], zero: true, xLabel: "sessions held",
+        band: {lo: top.map(r => [r.horizon, r.boot_ci_lo]), hi: top.map(r => [r.horizon, r.boot_ci_hi]), color: "--band"}, endLabels: true, aria: "Mean convergence by horizon for four |z| bands with the cost line"})}
+      <p>${clears.length ? `Only ${clears.map(r => "|z| ≥ 3 held " + r.horizon + " sessions").join(", ")} clears the cost line with 95% confidence.` : "No band clears the cost line with 95% confidence."} The backtest rarely holds that long: ${R.exit_reasons ? (R.exit_reasons.stop || 0) : "–"} of ${p.n_trades} trades were stopped out first.</p>
+      ${tableView(["band", "sessions", "n", "mean bp", "95% CI", "NW t", "net of cost"], es.rows.map(r => [r.z_band, r.horizon, r.n, num(r.mean_conv_bp, 1), num(r.boot_ci_lo, 1) + " to " + num(r.boot_ci_hi, 1), num(r.t_newey_west), num(r.net_conv_bp, 1)]))}</div>`;
+  }
+  if (c.sweep && c.sweep.length && fin(c.gross_bp)) {
+    const stat = c.sweep[0].statutory_bp, per = (c.sweep[0].round_trip_bp - stat) / c.sweep[0].half_spread_bp_per_leg;
+    html += `<div class="grid2 even"><div class="card"><h2>2 · Costs pass the gross edge almost immediately</h2>
+      <p class="note">Four bid-ask crossings per trade. Statutory charges alone are ${stat.toFixed(1)} bp; the spread itself is not in bhavcopy, so cost is shown as it widens.</p>
+      ${legend([{name: "round-trip cost", color: "--s1"}, {name: "gross edge per trade", color: "--ink-2", kind: "dash"}])}
+      ${lineChart([{name: "round-trip cost", color: "--s1", values: [0, 1, 2, 3, 4, 5, 6, 8, 10].map(x => [x, stat + per * x])}], {W: 520, H: 260, xTicks: [0, 2, 4, 6, 8, 10], xFmt: v => v + " bp", tipX: v => "half-spread " + v + " bp per leg", yFmt: v => v + " bp", tipY: v => num(v, 1) + " bp", refs: [{y: c.gross_bp, label: "gross " + c.gross_bp.toFixed(1) + " bp"}], zero: true, xLabel: "assumed half-spread per leg", aria: "Round-trip cost against assumed half-spread"})}
+      <p>They cross at <b>${num(c.breakeven_half_spread_bp, 1)} bp per leg</b>.</p></div>
+      ${premiumCard(R)}</div>`;
+  }
+  if (R.by_year) html += `<div class="grid2 even">${yearCard(R)}${exitCard(R, p)}</div>`;
+  html += `<div class="card"><h2>How the engine is kept honest <small>run on every push</small></h2><div class="checks">
+    ${[["Null world", "On synthetic data with no relative value, the strategy must show no edge."], ["Known truth", "A synthetic world with an injected premium and dislocation, which the model must recover."], ["No look-ahead", "Cutting off future data must not change any past signal."], ["Next-session fills", "A signal from today's settlement is filled tomorrow, never at the price that produced it."]].map(([k, d]) => checkRow({k, ok: true, d})).join("")}</div></div>`;
+  return html;
+};
+function premiumCard(R) {
+  const PREM = [["GOLDGUINEA", "--s1"], ["GOLDPETAL", "--s2"], ["GOLDTEN", "--s3"]];
+  const series = PREM.map(([s, color]) => ({name: s, color, values: (R.premiums || []).filter(r => r.symbol === s && fin(r.premium_bp)).map(r => [ms(r.date), r.premium_bp])})).filter(s => s.values.length);
+  if (!series.length) return "";
+  return `<div class="card"><h2>3 · Coin premiums drift slowly, and are removed</h2>
+    <p class="note">Premium over the GOLDM 995 bar, re-estimated weekly from the previous 120 sessions. It moves over months; left in, it would swamp the 20–70 bp dislocations being traded.</p>
+    ${legend(series.map(s => ({name: s.name, color: s.color})))}
+    ${lineChart(series, {W: 520, H: 260, xType: "date", xFmt: fmon, tipX: v => fdate(isoOf(v)), yFmt: v => v + " bp", tipY: v => bp(v), zero: true, endLabels: true, aria: "Coin premiums over time"})}</div>`;
+}
 function yearCard(R) {
-  const ys = R.by_year, W = 420, H = 230, pl = 46, pr = 12, pt = 14, pb = 28;
+  const ys = R.by_year, W = 460, H = 230, pl = 46, pr = 12, pt = 16, pb = 28;
   const vals = ys.map(y => y.net_bp), t = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals), 4), y0 = t[0], y1 = t[t.length - 1];
   const Y = v => pt + (H - pt - pb) * (y1 - v) / (y1 - y0), bw = (W - pl - pr) / ys.length;
   let g = t.map(v => `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${pl - 8}" y="${Y(v) + 4}" text-anchor="end">${v} bp</text>`).join("");
   ys.forEach((y, i) => {
-    const x = pl + i * bw + 6, top = Math.min(Y(y.net_bp), Y(0)), h = Math.max(1, Math.abs(Y(y.net_bp) - Y(0)));
-    const tipd = tipAttr(String(y.year), [{value: bp(y.net_bp), label: "net per trade"}, {value: bp(y.gross_bp), label: "gross per trade"}, {value: String(y.n), label: "trades"}, {value: inr(y.net_pnl), label: "net P&L"}]);
-    g += `<g${tipd}><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/><rect x="${x}" y="${top}" width="${bw - 12}" height="${h}" rx="3" style="fill:var(${y.net_bp >= 0 ? "--pos" : "--neg"})"/></g>`;
-    g += `<text class="lbl" x="${x + (bw - 12) / 2}" y="${y.net_bp >= 0 ? top - 6 : top + h + 14}" text-anchor="middle">${num(y.net_bp, 1)}</text>`;
-    g += `<text x="${x + (bw - 12) / 2}" y="${H - pb + 18}" text-anchor="middle">${y.year}</text>`;
+    const x = pl + i * bw + 8, top = Math.min(Y(y.net_bp), Y(0)), h = Math.max(1, Math.abs(Y(y.net_bp) - Y(0)));
+    g += `<g${tipAttr(String(y.year), [{value: bp(y.net_bp), label: "net per trade"}, {value: bp(y.gross_bp), label: "gross"}, {value: String(y.n), label: "trades"}, {value: inr(y.net_pnl), label: "net P&L"}])}><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/><rect x="${x}" y="${top}" width="${bw - 16}" height="${h}" rx="3" style="fill:var(${y.net_bp >= 0 ? "--pos" : "--neg"})"/></g>`;
+    g += `<text class="lbl" x="${x + (bw - 16) / 2}" y="${y.net_bp >= 0 ? top - 6 : top + h + 14}" text-anchor="middle">${num(y.net_bp, 1)}</text><text x="${x + (bw - 16) / 2}" y="${H - pb + 18}" text-anchor="middle">${y.year}</text>`;
   });
   g += `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${Y(0)}" y2="${Y(0)}"/>`;
-  return `<div class="card"><header><span class="q">4 · Is it stable?</span><h2>Net per trade, by entry year</h2><p>Only 2022 was positive. GOLDTEN pairs exist only from 2025.</p></header>
+  return `<div class="card"><h2>4 · Net per trade, by entry year</h2><p class="note">Only 2022 was positive. GOLDTEN pairs exist only from 2025.</p>
     ${legend([{name: "positive", color: "--pos", kind: "box"}, {name: "negative", color: "--neg", kind: "box"}])}
     <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Net basis points per trade by entry year">${g}</svg></div>
     ${tableView(["year", "trades", "gross bp", "net bp", "net P&L"], ys.map(y => [y.year, y.n, num(y.gross_bp, 1), num(y.net_bp, 1), inr(y.net_pnl)]))}</div>`;
 }
 function exitCard(R, p) {
   const ex = R.exit_reasons || {}, tot = Object.values(ex).reduce((a, b) => a + b, 0) || 1;
-  const order = [["stop", "stopped out", "--s2"], ["converged", "converged", "--s1"], ["calendar", "expiry runway", "--s3"], ["max_holding", "held too long", "--o2"]];
-  const parts = order.filter(o => ex[o[0]]);
-  return `<div class="card"><header><span class="q">Why trades end</span><h2>Half the trades are stopped out</h2>
-    <p>A spread that keeps widening after entry hits the stop. Contracts nearing expiry force the rest out before convergence.</p></header>
+  const parts = [["stop", "stopped out", "--s2"], ["converged", "converged", "--s1"], ["calendar", "expiry runway", "--s3"], ["max_holding", "held too long", "--o2"]].filter(o => ex[o[0]]);
+  return `<div class="card"><h2>Why trades end</h2><p class="note">A spread that keeps widening hits the stop; contracts nearing expiry force the rest out before convergence.</p>
     ${legend(parts.map(o => ({name: o[1], color: o[2], kind: "box"})))}
-    <div class="prop" role="img" aria-label="${esc(parts.map(o => o[1] + " " + ex[o[0]]).join(", "))}">${parts.map(o => `<div style="flex:${ex[o[0]]};background:var(${o[2]})"${tipAttr(o[1], [{value: String(ex[o[0]]), label: "trades"}, {value: pct(ex[o[0]] / tot), label: "of all"}])}>${ex[o[0]] / tot > 0.12 ? ex[o[0]] : ""}</div>`).join("")}</div>
-    <dl class="kv">${parts.map(o => `<dt>${esc(o[1])}</dt><dd>${ex[o[0]]} trades · ${pct(ex[o[0]] / tot)}</dd>`).join("")}
-      <dt>average holding</dt><dd>${num(p.mean_sessions_held, 1)} sessions</dd></dl></div>`;
+    <div class="prop">${parts.map(o => `<div style="flex:${ex[o[0]]};background:var(${o[2]})"${tipAttr(o[1], [{value: String(ex[o[0]]), label: "trades"}, {value: pct(ex[o[0]] / tot), label: "of all"}])}>${ex[o[0]] / tot > .12 ? ex[o[0]] : ""}</div>`).join("")}</div>
+    <table>${parts.map(o => `<tr><td>${esc(o[1])}</td><td class="num">${ex[o[0]]}</td><td class="num">${pct(ex[o[0]] / tot)}</td></tr>`).join("")}<tr><td>average holding</td><td class="num" colspan="2">${num(p.mean_sessions_held, 1)} sessions</td></tr></table></div>`;
 }
-
-V.today = async () => {
-  const [ov, ps] = await Promise.all([once("/api/overview"), once("/api/pairs")]);
-  const zmax = 4, pos = z => Math.max(0, Math.min(100, (z + zmax) / (2 * zmax) * 100)), ze = ov.meta.z_entry;
-  const s = ov.summary;
-  return `<section class="hero"><h1>${s.ALERT ? s.ALERT + " pair" + (s.ALERT > 1 ? "s" : "") + " unusual and tradeable" : "Nothing unusual on " + fdate(ov.meta.asof)}</h1>
-    <p class="lede">Each pair's residual spread against its own trailing history. A signal needs |z| ≥ ${ze} and every gate to pass. Quiet is the normal state, not a fault.</p></section>
-  <section class="card"><header><h2>Pairs on the latest session</h2><p>Select a pair for its history and gates.</p></header><div class="tw"><table>
-    <tr><th>Pair</th><th>Decision</th><th>z, from −4 to +4 (entry zone shaded)</th><th class="num">z</th><th class="num">Spread vs normal</th><th class="num">Half-life</th><th>Reason</th></tr>
-    ${ps.map(p => `<tr class="go" tabindex="0" data-go="pair/${esc(p.pair.replace("/", "-"))}"><td><b>${esc(p.pair)}</b><br><span class="muted" style="font-size:12px">${p.maturity_matched ? "same expiry" : "carry-bridged"}</span></td><td>${chip(p.status)}</td>
-      <td><div class="zt" aria-hidden="true"><div class="track"></div><div class="zone" style="left:0;width:${pos(-ze)}%"></div><div class="zone" style="left:${pos(ze)}%;right:0"></div><div class="mid" style="left:50%"></div>${fin(p.z) ? `<div class="dot ${Math.abs(p.z) >= ze ? "hot" : ""}" style="left:${pos(p.z)}%"></div>` : ""}</div></td>
-      <td class="num"><b>${num(p.z)}</b></td><td class="num">${bp(p.dislocation_bp)}</td><td class="num">${fin(p.halflife) ? num(p.halflife, 1) + " d" : "∞"}</td><td class="muted">${esc(p.reason)}</td></tr>`).join("")}
-  </table></div></section>
-  <section class="card"><header><h2>Front-month contracts</h2><p>Settlement converted to ₹ per 10 g of fine gold: close × 10 ÷ (quote grams × purity).</p></header><div class="tw"><table>
-    <tr><th>Contract</th><th>Expiry</th><th class="num">Settlement</th><th class="num">Quoted per</th><th class="num">Purity</th><th class="num">₹ per 10 g fine</th><th class="num">Volume (lots)</th><th class="num">Sessions left</th></tr>
-    ${ov.contracts.map(c => `<tr><td><b>${esc(c.symbol)}</b></td><td>${fdate(c.expiry_date)}</td><td class="num">${inr(c.close)}</td><td class="num">${c.quote_base_g} g</td><td class="num">${c.purity}</td><td class="num"><b>${inr(c.norm_close_10g)}</b></td><td class="num">${fin(c.volume) ? Number(c.volume).toLocaleString("en-IN") : "–"}</td><td class="num">${c.sessions_to_expiry ?? "–"}</td></tr>`).join("")}
-  </table></div></section>`;
-};
-
-V.pair = async (id) => {
-  const p = await get("/api/pairs/" + encodeURIComponent(id)), r = p.risk || {}, h = p.history || [], ze = p.z_entry;
-  const hs = h.filter(x => fin(x.spread_bp) && fin(x.centre) && fin(x.scale));
-  let chart = `<p class="muted">Not enough history yet.</p>`;
-  if (hs.length > 2) {
-    const spread = {name: "spread", color: "--s1", values: hs.map(x => [ms(x.date), x.spread_bp])};
-    const centre = {name: "trailing centre", color: "--muted", dash: true, width: 1.5, values: hs.map(x => [ms(x.date), x.centre])};
-    chart = legend([{name: "spread", color: "--s1"}, {name: "trailing centre", color: "--muted", kind: "dash"}, {name: `entry band (±${ze} × scale)`, color: "--band", kind: "box"}])
-      + lineChart([spread, centre], {W: 760, H: 300, xType: "date", xFmt: fmon, tipX: v => fdate(new Date(v).toISOString().slice(0, 10)), yFmt: v => v + " bp", tipY: v => bp(v),
-        band: {lo: hs.map(x => [ms(x.date), x.centre - ze * x.scale]), hi: hs.map(x => [ms(x.date), x.centre + ze * x.scale])},
-        aria: "Pair spread against its trailing centre and entry band"});
-  }
-  const gates = Object.entries(p.gates || {}).map(([k, ok]) => `<div class="gate"><b style="background:var(${ok ? "--good" : "--bad"})" aria-hidden="true">${ok ? "✓" : "✕"}</b>${esc(GATES[k] || k)} <span class="muted">${ok ? "pass" : "fail"}</span></div>`).join("");
-  return `<button class="back" data-go="today">← Today</button>
-  <section class="hero"><h1>${esc(p.pair)} ${chip(p.status)}</h1><p class="lede">${esc(p.reason)}. ${p.maturity_matched ? "Same expiry window." : "Different expiry windows, so the comparison relies on the carry model (carry-bridged)."}</p></section>
-  <section class="card"><header><h2>Spread against its own history</h2><p>Centre and band use data up to the previous session only. Last ${hs.length} sessions.</p></header>${chart}</section>
-  <section class="grid2">
-    <div class="card"><header><h2>Today</h2></header><dl class="kv">
-      <dt>z</dt><dd><b>${num(p.z)}</b></dd><dt>spread</dt><dd>${bp(p.spread_bp)}</dd><dt>vs normal</dt><dd>${bp(p.dislocation_bp)}</dd>
-      <dt>half-life</dt><dd>${fin(p.halflife) ? num(p.halflife, 1) + " sessions" : "∞"}</dd><dt>ADF t</dt><dd>${num(p.adf_t)}</dd></dl>
-      <h2 style="margin-top:8px">Gates</h2><div class="gates">${gates}</div></div>
-    <div class="card"><header><h2>Margin if added</h2><p>SPAN parameters are assumed, not MCX-published; see Data.</p></header>${p.risk ? `<dl class="kv">
-      <dt>action</dt><dd><b>${esc(r.action)}</b> <span class="muted">${esc(r.reason || "")}</span></dd>
-      <dt>lots</dt><dd>${r.lots_a == null ? "–" : `${r.lots_a} × ${esc(p.sym_a)} / ${r.lots_b} × ${esc(p.sym_b)}`}</dd>
-      <dt>notional</dt><dd>${inr(r.notional_exposure)}</dd><dt>margin</dt><dd>${inr(r.marginal_margin)}${r.floor_binds ? ' <span class="muted">(6% floor binds)</span>' : ""}</dd>
-      <dt>utilisation</dt><dd>${pct(r.utilisation_if_added, 1)}</dd><dt>SPAN change, 21 sessions</dt><dd>${pct(r.span_change_pct, 1)}</dd></dl>` : `<p class="muted">Not priced.</p>`}</div>
-  </section>`;
-};
 
 V.backtest = async () => {
   const [R, B] = await Promise.all([once("/api/research"), once("/api/backtest")]), p = B.performance || {};
   const eq = (R.equity || []).filter(x => fin(x.equity));
-  return `<section class="hero"><h1>${esc(B.verdict.headline)}</h1>
-    <p class="lede">Walk-forward over ${fdate(R.window.start)} to ${fdate(R.window.end)}. Whole lots, fine-gram neutral legs, daily cash margin with forced exits, nothing held into tender.</p>
-    <div class="tiles">
-      <div class="tile"><div class="l">Trades</div><div class="v">${p.n_trades ?? 0}</div><div class="s">avg ${num(p.mean_sessions_held, 1)} sessions held</div></div>
-      <div class="tile"><div class="l">Net P&amp;L</div><div class="v ${p.net_pnl < 0 ? "neg" : "posv"}">${lakh(p.net_pnl)}</div><div class="s">gross ${lakh(p.gross_pnl)}, costs ${lakh(p.total_cost)}</div></div>
-      <div class="tile"><div class="l">Sharpe</div><div class="v">${num(p.sharpe)}</div><div class="s">annualised</div></div>
-      <div class="tile"><div class="l">Max drawdown</div><div class="v neg">${lakh(p.max_drawdown_inr)}</div><div class="s">peak margin ${lakh(p.peak_margin)}</div></div>
-    </div></section>
-  ${eq.length ? `<section class="card"><header><h2>Cumulative net P&amp;L</h2><p>After all costs, marked to market daily. ₹ lakh.</p></header>
-    ${lineChart([{name: "net P&L", color: "--s1", values: eq.map(x => [ms(x.date), x.equity])}], {W: 760, H: 280, xType: "date", xFmt: fmon, tipX: v => fdate(new Date(v).toISOString().slice(0, 10)), yFmt: v => (v / 1e5).toFixed(1), tipY: v => lakh(v), zero: true, aria: "Cumulative net profit and loss over time"})}</section>` : ""}
-  ${R.by_pair ? `<section class="card"><header><h2>By pair</h2></header><div class="tw"><table><tr><th>Pair</th><th class="num">Trades</th><th class="num">Gross per trade</th><th class="num">Net per trade</th><th class="num">Net hit rate</th><th class="num">Net P&amp;L</th></tr>
-    ${R.by_pair.map(r => `<tr><td><b>${esc(r.pair)}</b></td><td class="num">${r.n}</td><td class="num">${bp(r.gross_bp)}</td><td class="num ${r.net_bp < 0 ? "neg" : ""}">${bp(r.net_bp)}</td><td class="num">${pct(r.hit_rate_net)}</td><td class="num">${inr(r.net_pnl)}</td></tr>`).join("")}</table></div></section>` : ""}
-  <section class="card"><header><h2>Trades</h2><p>Most recent first.</p></header><div class="tw"><table><tr><th>Pair</th><th>Entry</th><th>Exit</th><th class="num">Lots</th><th class="num">Entry z</th><th class="num">Gross</th><th class="num">Net</th><th>Exit</th></tr>
-    ${(B.trades || []).map(t => `<tr><td><b>${esc(t.pair)}</b></td><td>${fdate(t.entry_date)}</td><td>${fdate(t.exit_date)}</td><td class="num">${t.lots_a} / ${t.lots_b}</td><td class="num">${num(t.entry_z)}</td><td class="num">${bp(t.gross_bp)}</td><td class="num ${t.net_bp < 0 ? "neg" : ""}">${bp(t.net_bp)}</td><td>${esc(t.exit_reason)}</td></tr>`).join("") || `<tr><td colspan="8" class="muted">No trades.</td></tr>`}</table></div>
-    ${p.tstat_caveat ? `<p class="note">${esc(p.tstat_caveat)}</p>` : ""}</section>`;
+  return `<div class="kpis">
+    <div class="kpi"><div class="l">Trades</div><div class="v">${p.n_trades ?? 0}</div><div class="s">avg ${num(p.mean_sessions_held, 1)} sessions held</div></div>
+    <div class="kpi"><div class="l">Net P&amp;L</div><div class="v ${p.net_pnl < 0 ? "c-bad" : "c-good"}">${lakh(p.net_pnl)}</div><div class="s">gross ${lakh(p.gross_pnl)} · costs ${lakh(p.total_cost)}</div></div>
+    <div class="kpi"><div class="l">Sharpe</div><div class="v">${num(p.sharpe)}</div><div class="s">annualised</div></div>
+    <div class="kpi"><div class="l">Max drawdown</div><div class="v c-bad">${lakh(p.max_drawdown_inr)}</div><div class="s">peak margin ${lakh(p.peak_margin)}</div></div></div>
+  ${eq.length ? `<div class="card"><h2>Cumulative net P&amp;L <small>after all costs, marked to market daily, ₹ lakh · ${fdate(R.window.start)} to ${fdate(R.window.end)}</small></h2>
+    ${lineChart([{name: "net P&L", color: "--s1", values: eq.map(x => [ms(x.date), x.equity])}], {W: 900, H: 280, xType: "date", xFmt: fmon, tipX: v => fdate(isoOf(v)), yFmt: v => (v / 1e5).toFixed(1), tipY: v => lakh(v), zero: true, aria: "Cumulative net P&L"})}</div>` : ""}
+  ${R.by_pair ? `<div class="card"><h2>By pair</h2><div class="tw"><table><tr><th>Pair</th><th class="num">Trades</th><th class="num">Gross / trade</th><th class="num">Net / trade</th><th class="num">Net hit rate</th><th class="num">Net P&amp;L</th></tr>
+    ${R.by_pair.map(r => `<tr><td><b>${esc(vs(r.pair))}</b></td><td class="num">${r.n}</td><td class="num">${bp(r.gross_bp)}</td><td class="num ${r.net_bp < 0 ? "c-bad" : ""}">${bp(r.net_bp)}</td><td class="num">${pct(r.hit_rate_net)}</td><td class="num">${inr(r.net_pnl)}</td></tr>`).join("")}</table></div></div>` : ""}
+  <div class="card"><h2>Trades <small>most recent first</small></h2><div class="tw"><table><tr><th>Pair</th><th>Entry</th><th>Exit</th><th class="num">Lots</th><th class="num">Entry z</th><th class="num">Gross</th><th class="num">Net</th><th>Exit</th></tr>
+    ${(B.trades || []).map(t => `<tr><td><b>${esc(vs(t.pair))}</b></td><td>${fdate(t.entry_date)}</td><td>${fdate(t.exit_date)}</td><td class="num">${t.lots_a} / ${t.lots_b}</td><td class="num">${num(t.entry_z)}</td><td class="num">${bp(t.gross_bp)}</td><td class="num ${t.net_bp < 0 ? "c-bad" : ""}">${bp(t.net_bp)}</td><td class="sub">${esc(String(t.exit_reason).toUpperCase())}</td></tr>`).join("") || `<tr><td colspan="8" class="empty">No trades.</td></tr>`}</table></div>
+    ${p.tstat_caveat ? `<p class="note">${esc(p.tstat_caveat)}</p>` : ""}</div>`;
 };
 
 V.data = async () => {
-  const [R, q, h] = await Promise.all([once("/api/research"), once("/api/data-quality"), once("/api/health")]);
+  const [q, h, R] = await Promise.all([once("/api/data-quality"), once("/api/health"), once("/api/research")]), a = q.archive;
   const flags = Object.entries(q.flags || {}).filter(([k]) => k !== "symbol_unknown_or_filtered");
-  return `<section class="hero"><h1>${(q.rows_out || 0).toLocaleString("en-IN")} validated contract-days</h1>
-    <p class="lede">From ${(q.rows_in || 0).toLocaleString("en-IN")} raw bhavcopy rows (all MCX commodities). Every problem becomes a flag on the row; nothing is silently dropped or repaired.</p></section>
-  <section class="card"><header><h2>Coverage</h2><p>GOLDTEN only lists from ${fdate((R.coverage || []).find(x => x.symbol === "GOLDTEN")?.first)}, so its pairs rest on much less history.</p></header><div class="tw"><table>
-    <tr><th>Contract</th><th>First</th><th>Last</th><th class="num">Sessions</th><th class="num">Expiries</th><th class="num">No-trade or derived settles</th></tr>
-    ${(R.coverage || []).map(c => `<tr><td><b>${esc(c.symbol)}</b></td><td>${fdate(c.first)}</td><td>${fdate(c.last)}</td><td class="num">${c.sessions.toLocaleString("en-IN")}</td><td class="num">${c.contracts}</td><td class="num">${(c.untradeable_rows ?? 0).toLocaleString("en-IN")}</td></tr>`).join("")}
-  </table></div></section>
-  <section class="grid2">
-    <div class="card"><header><h2>Flags raised</h2><p>Rows kept and marked, so results can say how much data they stand on.</p></header><table>
-      ${flags.map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="num">${Number(v).toLocaleString("en-IN")}</td></tr>`).join("") || `<tr><td class="muted">none</td></tr>`}</table></div>
-    <div class="card"><header><h2>Provenance</h2></header><dl class="kv">
-      <dt>source</dt><dd>${esc(h.source)}${h.source === "csv" ? " (MCX bhavcopy via mtf.trading)" : ""}</dd>
-      <dt>as of</dt><dd>${fdate(h.asof)}</dd><dt>built</dt><dd>${esc(new Date(h.generated_at).toLocaleString("en-IN", {dateStyle: "medium", timeStyle: "short"}))}</dd>
-      <dt>run</dt><dd class="mono">${esc(q.run_id)}</dd><dt>input hash</dt><dd class="mono" style="word-break:break-all">${esc(q.data_fingerprint)}</dd>
-      <dt>margin parameters</dt><dd>${esc(R.meta.span_parameters)}</dd></dl>
-      <p class="note">Margin figures use assumed SPAN parameters until real MCXCCL risk files are loaded with scripts/load_risk_params.py.</p></div>
-  </section>`;
+  const sha = s => s ? `<span class="mono"${tipAttr("SHA-256", [{value: s}])}>${esc(s.slice(0, 16))}…</span>` : "–";
+  const ist = t => t ? new Date(t).toLocaleString("en-IN", {timeZone: "Asia/Kolkata", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false}) : "–";
+  return `<div class="kpis">
+    <div class="kpi"><div class="l">Files archived</div><div class="v">${a ? int(a.files) : "–"}</div><div class="s">raw bytes kept, never edited</div></div>
+    <div class="kpi"><div class="l">Rows checked</div><div class="v">${int(q.rows_in)}</div><div class="s">${int(q.rows_out)} gold futures rows kept</div></div>
+    <div class="kpi"><div class="l">Files rejected</div><div class="v ${a && a.rejected ? "c-bad" : ""}">${a ? int(a.rejected) : "–"}</div><div class="s">date inside ≠ date requested</div></div>
+    <div class="kpi"><div class="l">Contract specs</div><div class="v">${(q.coverage || []).length}</div><div class="s">quote basis, purity, expiry window</div></div>
+  </div>
+  ${a ? `<div class="card"><h2>Download log <small>requested date must equal the date inside the file · latest ${a.rows.length} of ${int(a.files)}</small></h2><div class="tw"><table>
+    <tr><th>Requested</th><th>Returned</th><th>Saved (IST)</th><th>File</th><th class="num">Gold rows</th><th>SHA-256</th><th>Status</th></tr>
+    ${a.rows.map(r => `<tr><td>${fdate(r.requested)}</td><td class="${r.status === "LOADED" ? "" : "c-bad"}"><b>${fdate(r.returned)}</b></td><td class="sub">${ist(r.saved_at)}</td><td class="mono">${esc(r.file)}</td><td class="num">${r.gold_rows}</td><td>${sha(r.sha256)}</td><td>${chip(r.status, r.status === "REJECTED_DATE" ? "rejected · date" : r.status)}</td></tr>`).join("")}
+  </table></div></div>` : `<div class="banner info">No download log: this run did not read a directory of bhavcopy files (source: ${esc(h.source)}).</div>`}
+  <div class="grid2">
+    <div class="card"><h2>Coverage <small>per contract family</small></h2><div class="tw"><table><tr><th>Contract</th><th>First</th><th>Last</th><th class="num">Sessions</th><th class="num">Expiries</th><th class="num">No-trade settles</th></tr>
+      ${(q.coverage || []).map(c => `<tr><td><b>${esc(c.symbol)}</b></td><td>${fdate(c.first)}</td><td>${fdate(c.last)}</td><td class="num">${int(c.sessions)}</td><td class="num">${c.contracts}</td><td class="num">${int(c.untradeable_rows)}</td></tr>`).join("")}</table></div>
+      <p class="note">GOLDTEN lists only from ${fdate((q.coverage || []).find(c => c.symbol === "GOLDTEN")?.first)}, so its pairs rest on less history. No-trade settles are exchange-computed prices on days nothing traded; they are flagged and never filled against.</p></div>
+    <div class="card"><h2>Flags and provenance</h2><table>
+      ${flags.map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="num">${int(v)}</td></tr>`).join("")}
+      <tr><td>source</td><td class="num">${esc(h.source)}${h.source === "csv" ? " · MCX bhavcopy via mtf.trading" : ""}</td></tr>
+      <tr><td>run / input hash</td><td class="num mono" style="white-space:normal;word-break:break-all">${esc(q.run_id)}<br><span class="sub">${esc(q.data_fingerprint)}</span></td></tr>
+      <tr><td>margin parameters</td><td class="num" style="white-space:normal">${esc(R.meta.span_parameters)}</td></tr></table></div>
+  </div>`;
 };
+
+let whatIf = null;
+V.settings = async () => {
+  const S = await once("/api/settings");
+  whatIf = whatIf ?? S.z_entry;
+  const groups = [...new Set(S.parameters.map(p => p.group))];
+  const fmt = p => p.unit === "₹" ? inr(p.value) : `${p.value}${p.unit ? " " + p.unit : ""}`;
+  return `<div class="grid2">
+    <div class="card"><h2>Engine parameters <small>used by this run · read-only</small></h2>
+      ${groups.map(g => `<div><div class="sub" style="font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin:6px 0 2px">${esc(g)}</div><table class="params">${S.parameters.filter(p => p.group === g).map(p => `<tr><td><b>${esc(p.name)}</b></td><td class="num"><b>${esc(fmt(p))}</b></td><td class="sub">${esc(p.what)}</td></tr>`).join("")}</table></div>`).join("")}
+      <p class="note">To change one, re-run the nightly job with the new value, for example <span class="mono">python scripts/nightly.py --source csv --z-entry 2.5</span>. The engine is rule-based; nothing here is learned or tuned by AI.</p></div>
+    <div class="card"><h2>What if the threshold changed? <small>counts only</small></h2>
+      <div class="stepper"><span style="flex:1"><b>Unusual if |z| ≥</b><div class="sub">this run used ${S.z_entry}</div></span><button data-step="-0.1" aria-label="Lower threshold">−</button><output id="zv">${whatIf.toFixed(1)}</output><button data-step="0.1" aria-label="Raise threshold">+</button></div>
+      <div id="wi">${whatIfTable(S)}</div>
+      <p class="note">This only counts pair-sessions whose z crosses the threshold, from the stored history. The other gates, the risk board and the backtest need a full re-run to change.</p></div>
+  </div>`;
+};
+function whatIfTable(S) {
+  const hist = S.pair_history, pairs = Object.keys(hist);
+  const last = Math.max(...pairs.map(k => hist[k].length ? ms(hist[k][hist[k].length - 1].date) : 0));
+  let today = 0, total = 0, n = 0;
+  for (const k of pairs) for (const r of hist[k]) { if (!fin(r.z)) continue; n++; if (Math.abs(r.z) >= whatIf) { total++; if (ms(r.date) === last) today++; } }
+  const sessions = Math.max(...pairs.map(k => hist[k].length));
+  return `<table><tr><th></th><th class="num">Today</th><th class="num">Last ${sessions} sessions</th></tr>
+    <tr><td>Unusual pair-sessions</td><td class="num"><b>${today}</b></td><td class="num"><b>${total}</b></td></tr>
+    <tr><td>Share of all checks</td><td class="num">${pct(today / (pairs.length || 1))}</td><td class="num">${pct(total / (n || 1), 1)}</td></tr></table>`;
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-step]");
+  if (b) { whatIf = Math.max(0.5, Math.min(5, Math.round((whatIf + Number(b.dataset.step)) * 10) / 10)); $("#zv").textContent = whatIf.toFixed(1); $("#wi").innerHTML = whatIfTable(await once("/api/settings")); }
+});
 
 // ------------------------------------------------------------------ router
 async function render() {
-  const [r, arg] = (location.hash.replace("#/", "") || "findings").split("/");
-  const route = V[r] ? r : "findings";
-  document.querySelectorAll("#nav a").forEach(a => {
-    const on = a.dataset.r === route || (route === "pair" && a.dataset.r === "today");
-    a.classList.toggle("on", on); on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
-  });
+  const [r, arg] = (location.hash.replace("#/", "") || "overview").split("/");
+  const route = V[r] ? r : "overview";
+  $("#ttl").textContent = TITLES[route];
+  document.querySelectorAll("#nav a").forEach(a => { const on = a.dataset.r === route || (route === "pair" && a.dataset.r === "pairs"); a.classList.toggle("on", on); on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
   hideTip();
   for (const k in CHARTS) delete CHARTS[k];
   try { $("#view").innerHTML = await V[route](arg); }
-  catch (e) { $("#view").innerHTML = `<div class="err"><b>Could not load this view.</b><br>${esc(e.message)}<br><span class="note">API: ${esc(API || location.origin)}. If no snapshot exists yet, run scripts/nightly.py.</span></div>`; }
-  scrollTo(0, 0);
+  catch (e) { $("#view").innerHTML = `<div class="err"><b>Could not load this page.</b><br>${esc(e.message)}<br><span class="note">API: ${esc(API || location.origin)}. If no snapshot exists yet, run scripts/nightly.py.</span></div>`; }
+  $("#view").scrollTop = 0;
 }
 async function boot() {
   try {
-    const h = await once("/api/health");
-    const pill = h.sample_data ? `<span class="pill sample">sample data</span>` : `<span class="pill real">MCX data</span>`;
-    $("#meta").innerHTML = `${pill}<span>as of ${esc(fdate(h.asof))}</span><span class="mono">${esc(h.run_id)}</span>`;
-  } catch (e) { $("#meta").textContent = "API unreachable: " + e.message; }
+    const [h, o] = await Promise.all([once("/api/health"), once("/api/overview")]);
+    const p = $("#dpill"); p.hidden = false; p.className = "dpill " + (h.sample_data ? "sample" : "real"); p.textContent = h.sample_data ? "SAMPLE DATA" : "MCX DATA";
+    const built = new Date(h.generated_at);
+    $("#runinfo").innerHTML = `Last run ${esc(built.toLocaleTimeString("en-IN", {timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false}))} IST · run <span class="mono">${esc(h.run_id)}</span>`;
+    const dc = $("#datechip"); dc.hidden = false; dc.textContent = h.asof ? new Date(h.asof + "T00:00:00").toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short", year: "numeric"}) : "–";
+    $("#foot").innerHTML = `Data: ${h.sample_data ? "synthetic sample in MCX bhavcopy format" : "MCX bhavcopy via mtf.trading"}<br>Engine: rule-based, no AI in the decision<br>Build ${esc(fdate(String(h.generated_at).slice(0, 10)))}`;
+    const c = $("#ncnt"); c.hidden = false; c.textContent = o.summary.ALERT; c.classList.toggle("calm", !o.summary.ALERT);
+  } catch (e) { $("#foot").textContent = "API unreachable: " + e.message; }
   render();
 }
 addEventListener("hashchange", render);
