@@ -202,39 +202,53 @@ def _estimate_premiums(win: pd.DataFrame, cfg: CarryConfig) -> dict:
     if win.empty:
         return c
 
-    days = [(d, g) for d, g in win.groupby("date", sort=True)
-            if len(g) >= cfg.min_obs_per_day]
+    # Pull each day's arrays out of pandas ONCE. The sweep below revisits every day
+    # `iters` times, and doing the per-day work in DataFrames made this function ~90%
+    # of the whole model's runtime for no arithmetic reason.
+    code = {s: k for k, s in enumerate(syms)}
+    days = []
+    for _d, g in win.groupby("date", sort=True):
+        if len(g) < cfg.min_obs_per_day:
+            continue
+        days.append((g["symbol"].map(code).to_numpy(dtype=np.intp),
+                     g["log_norm"].to_numpy(dtype=float),
+                     g["T_years"].to_numpy(dtype=float),
+                     g["_w"].to_numpy(dtype=float)))
+    robust = cfg.robust_scope == "all"
 
     for _ in range(cfg.iters):
-        parts = []
-        for _d, g in days:
-            adj = g["symbol"].map(c).astype(float).to_numpy()
-            y = g["log_norm"].to_numpy() - adj
-            tau = g["T_years"].to_numpy()
-            w = g["_w"].to_numpy()
+        cvec = np.array([c[s] for s in syms], dtype=float)
+        sym_parts, r_parts, w_parts = [], [], []
+        for sym, log_norm, tau, w in days:
+            y = log_norm - cvec[sym]
             live = w > 0
             if not live.any() or np.ptp(tau[live]) < cfg.min_tau_spread:
                 continue
-            a, b, _rmse, n = _fit_day(tau, y, w,
-                                      robust=(cfg.robust_scope == "all"), cfg=cfg)
+            a, b, _rmse, n = _fit_day(tau, y, w, robust=robust, cfg=cfg)
             if not np.isfinite(a):
                 continue
-            r = y - (a + b * tau)
-            parts.append(pd.DataFrame({"symbol": g["symbol"].to_numpy(),
-                                       "r": r, "w": w}))
-        if not parts:
+            sym_parts.append(sym)
+            r_parts.append(y - (a + b * tau))
+            w_parts.append(w)
+        if not sym_parts:
             break
-        R = pd.concat(parts, ignore_index=True)
-        R = R[R["w"] > 0]
-        if R.empty:
+        S = np.concatenate(sym_parts)
+        R = np.concatenate(r_parts)
+        W = np.concatenate(w_parts)
+        keep = W > 0
+        if not keep.any():
             break
+        S, R, W = S[keep], R[keep], W[keep]
+        present = np.unique(S)
         if cfg.robust_premium_median:
-            agg = lambda g: _weighted_median(g["r"].to_numpy(), g["w"].to_numpy())
+            upd = {k: _weighted_median(R[S == k], W[S == k]) for k in present}
         else:
-            agg = lambda g: float(np.average(g["r"], weights=g["w"]))
-        upd = R.groupby("symbol").apply(agg, include_groups=False)
-        for s, v in upd.items():
-            c[s] = c.get(s, 0.0) + float(v)
+            # Weighted mean residual per symbol: sum(w r) / sum(w), by symbol code.
+            num = np.bincount(S, weights=W * R, minlength=len(syms))
+            den = np.bincount(S, weights=W, minlength=len(syms))
+            upd = {k: num[k] / den[k] for k in present}
+        for k, v in upd.items():
+            c[syms[k]] += float(v)
         # Pin the reference so the premiums are interpretable and a_t is GOLDM.
         if REF_SYMBOL in c:
             base = c[REF_SYMBOL]
