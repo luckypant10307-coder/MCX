@@ -56,7 +56,8 @@ def main(argv=None) -> int:
                                   account_capital=a.account_capital)
     t0 = time.time()
     result = pipeline.run(cfg)
-    snap = snapshot.build(result)
+    archive = snapshot.archive_log(a.csv_dir) if a.source == "csv" else None
+    snap = snapshot.build(result, archive=archive)
     prev = snapshot.load(a.out)
     snapshot.save(snap, a.out)
 
