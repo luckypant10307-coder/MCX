@@ -77,6 +77,12 @@ def backtest():
     return _wrap(service.backtest)
 
 
+@app.get("/api/research")
+def research():
+    """Full-history evidence: event study, cost sweep, premiums, coverage, by-year."""
+    return _wrap(service.research)
+
+
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
 if os.path.isdir(WEB_DIR):
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")

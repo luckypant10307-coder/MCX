@@ -28,7 +28,9 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--source", default="synthetic", choices=["synthetic", "csv", "live", "db"])
     p.add_argument("--csv-dir", default="data/raw")
-    p.add_argument("--start", default=None, help="default: 450 days before --end")
+    p.add_argument("--start", default=None,
+                   help="default: all stored history for csv/db (the research view needs "
+                        "every session); 450 days before --end for synthetic/live")
     p.add_argument("--end", default="2026-09-18",
                    help="last session to include (synthetic default matches the README)")
     p.add_argument("--seed", type=int, default=7)
@@ -43,8 +45,12 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     a = parse_args(argv)
     end = datetime.strptime(a.end, "%Y-%m-%d").date()
-    start = (datetime.strptime(a.start, "%Y-%m-%d").date() if a.start
-             else end - timedelta(days=450))
+    if a.start:
+        start = datetime.strptime(a.start, "%Y-%m-%d").date()
+    elif a.source in ("csv", "db"):
+        start = None                    # everything on disk / in the store
+    else:
+        start = end - timedelta(days=450)
     cfg = pipeline.PipelineConfig(source=a.source, start=start, end=end,
                                   csv_dir=a.csv_dir, seed=a.seed, z_entry=a.z_entry,
                                   account_capital=a.account_capital)
