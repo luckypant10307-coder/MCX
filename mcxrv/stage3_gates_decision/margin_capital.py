@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from . import specs
+from ..stage1_intake import specs
 
 # ---------------------------------------------------------------------------
 # the 16 SPAN scenarios
