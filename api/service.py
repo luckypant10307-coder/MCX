@@ -114,3 +114,12 @@ def data_quality(store: SnapshotStore) -> dict:
 
 def backtest(store: SnapshotStore) -> dict:
     return store.get()["backtest"]
+
+
+def research(store: SnapshotStore) -> dict:
+    s = store.get()
+    if not s.get("research"):
+        raise NotFound("this snapshot has no research section; rebuild it with "
+                       "scripts/nightly.py")
+    return {**s["research"], "verdict": s["backtest"]["verdict"],
+            "performance": s["backtest"]["performance"], "meta": s["meta"]}
