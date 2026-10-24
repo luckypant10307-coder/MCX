@@ -59,8 +59,8 @@ import zipfile
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 
-from . import margin as margin_mod
-from . import specs
+from . import margin_capital as margin_mod
+from ..stage1_intake import specs
 
 
 class SpanFileError(ValueError):

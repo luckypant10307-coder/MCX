@@ -10,3 +10,5 @@ data/processed/*
 data/raw/*
 reports/*.csv
 reports/*.html
+reports/*.json
+reports/*.parquet
