@@ -332,6 +332,13 @@ data.
 
 ### Getting real MCX data
 
+The current bhavcopy download (`BhavCopyDateWise_DDMMYYYY.csv`) writes dates as
+`22 Oct 2026`, headers as `Volume(Lots)` / `Open Interest(Lots)`, and mixes options
+(`Instrument Name = OPTFUT`) in with futures. The reader handles all three: only
+FUTCOM rows are kept, and repeated downloads of the same day (a browser saves them as
+`... (1).csv`, `... (2).csv`) collapse to one session. `tests/test_real_format.py`
+runs on eight real rows from the 22 Oct 2026 file.
+
 `www.mcxindia.com` sits behind Akamai bot protection that rejects non-browser TLS
 clients regardless of headers — this was verified, and no attempt is made to defeat
 it. Three sources are provided behind one interface:
@@ -388,9 +395,15 @@ mcxrv/
   backtest.py     walk-forward; integer lots; calendar discipline
   attribution.py  gold beta, roll vs curve, block bootstrap
   anomaly.py      Isolation Forest data-quality review queue (advisory only)
+  pipeline.py     steps above as one callable run (shared by scripts and the API)
+  snapshot.py     one run -> one JSON file: pairs, reasons, history, risk, backtest
+  notify.py       Telegram messages on state changes only
   sources/        base | mcx_live | csv_dir | synthetic | db_source
   db/             config.py, schema.sql, repo.py  (PostgreSQL store)
-scripts/          run_analysis.py, make_dashboard.py, db_init.py, db_load.py
+scripts/          run_analysis.py, make_dashboard.py, db_init.py, db_load.py,
+                  nightly.py
+api/              service.py (read side, framework-free), main.py (FastAPI routes)
+web/              index.html: the dashboard, plain HTML + JS, no build step
 tests/            199 tests: null, mutate-the-future, db, ML,
                   spec-versioning, SPAN-margin, ledger, risk-board and
                   published-parameter suites
@@ -695,6 +708,82 @@ structurally by asserting no modelling module imports `anomaly`:
 Run it with `python scripts/db_load.py --model-only --anomaly`; results land in
 `dq_anomaly` with the feature vector as `jsonb`, and `v_anomaly_review` surfaces the
 unexplained ones worst-first, joined to the quote so a human can see the print.
+
+## Web prototype: API, dashboard, alerts
+
+The research pipeline above answers "is there an edge?". This layer turns the same
+pipeline into a monitor someone can open every evening.
+
+```
+scripts/nightly.py  ->  data/processed/snapshot.json  ->  api/ (FastAPI)  ->  web/index.html
+        |
+        +-> Telegram: only when a pair becomes or stops being an ALERT
+```
+
+**Nightly job.** `scripts/nightly.py` runs the pipeline once, writes a single JSON
+snapshot (atomically, so the API never reads half a file), keeps a dated copy under
+`data/processed/history/`, and diffs against the previous snapshot for Telegram.
+
+```bash
+python scripts/nightly.py                                   # synthetic sample data
+python scripts/nightly.py --source csv --csv-dir data/raw   # downloaded bhavcopy
+python scripts/nightly.py --source db --end 2026-09-18      # Postgres store
+```
+
+Each pair gets one status for the latest session, and always a reason:
+
+| Status | Meaning |
+|---|---|
+| ALERT | z beyond ±2 (the entry level), all four gates passed, and the risk board says "may add" or "add reduced size" |
+| NO_TRADE | unusual, but something refused: the failed gates are listed, or the risk-board reason |
+| QUIET | z inside ±2 |
+| WARMUP | not enough history to score yet (the signal needs about 100 sessions per pair) |
+
+The decision log covers recent history, where each unusual session is TRADED
+(entered next session), SIGNAL (gates passed but not entered: book full, already
+open, or could not size) or NO_TRADE.
+
+**API.** Read-only, served from the snapshot; a request never re-runs the model.
+
+```bash
+pip install -r requirements-api.txt
+uvicorn api.main:app --reload        # http://localhost:8000  (docs at /docs)
+```
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/health` | run id, as-of date, source, sample-data flag |
+| `GET /api/overview` | counts, front-month contracts in INR per gram fine, gold level, verdict |
+| `GET /api/pairs?status=ALERT` | latest status and reason per pair |
+| `GET /api/pairs/GOLDM-GOLDTEN` | one pair: gates, risk board row, 250-session band history |
+| `GET /api/decisions?limit=&status=&pair=` | decision log |
+| `GET /api/risk` | risk board |
+| `GET /api/data-quality` | rows in/out, every flag count, wrong-date examples, data fingerprint |
+| `GET /api/backtest` | performance, trades, verdict |
+
+The logic lives in `api/service.py` (no web framework imported) and is what the tests
+cover; `api/main.py` is routing only.
+
+**Dashboard.** `web/index.html` is served at `/` by the same app. It is a single file
+with no build step, so it can also be hosted on Vercel/Netlify and pointed at a
+separate API with `?api=https://your-api.example.com` (set `CORS_ORIGINS` on the API).
+A "SAMPLE DATA" badge shows whenever the snapshot came from the synthetic source.
+
+**Telegram.** Create a bot with @BotFather, then set `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_CHAT_ID` in the environment (or as GitHub secrets). Messages go out only
+for a new ALERT, a cleared ALERT, a run with no data, or the same session's data
+changing between runs. Without credentials the job prints what it would have sent;
+delivery failures never fail the run.
+
+**Automation.** `.github/workflows/nightly.yml` runs the job at 00:15 IST on weekdays,
+keeps the previous snapshot in the Actions cache for the diff, and uploads the
+snapshot as an artifact. `.github/workflows/ci.yml` runs the test suite with a
+Postgres service. `Dockerfile` / `render.yaml` deploy API + dashboard as one service.
+
+**What is not done yet.** The live MCX source still depends on MCX's endpoint
+accepting requests from wherever the job runs; on GitHub-hosted runners, download the
+bhavcopy separately and use `--source csv`. The dashboard is plain HTML rather than
+Next.js so it runs with no toolchain; porting it later changes nothing in the API.
 
 ## Known limitations
 

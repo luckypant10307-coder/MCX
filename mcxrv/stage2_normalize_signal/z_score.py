@@ -29,7 +29,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from . import specs
+from ..stage1_intake import specs
 
 # MacKinnon critical values, constant-no-trend, large sample.
 ADF_CRIT = {0.01: -3.43, 0.05: -2.86, 0.10: -2.57}
