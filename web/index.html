@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold Spread Monitor</title>
+<style>
+:root{--side:#111827;--side2:#1F2937;--bg:#F5F6F8;--card:#fff;--ink:#111827;--muted:#6B7280;--line:#E5E7EB;
+ --gold:#D97A1E;--gold-t:#A4500B;--gold-bg:#FDF3E6;--green:#15803D;--green-bg:#ECFDF3;--red:#B91C1C;--red-bg:#FEF2F2;
+ --amber:#B45309;--amber-bg:#FFFBEB;--blue:#2E6DA4;--blue-bg:#EAF2FB;--slate:#475569;--slate-bg:#F1F5F9}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;display:flex}
+aside{width:236px;background:var(--side);color:#E5E7EB;display:flex;flex-direction:column;padding:20px 14px;flex-shrink:0}
+.brand{display:flex;gap:10px;align-items:center;padding:0 6px 20px;border-bottom:1px solid #374151;margin-bottom:12px}
+.brand .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#F2C14E,#D97A1E);display:grid;place-items:center;color:#111;font-weight:900}
+.brand b{display:block;font-size:16px}.brand small{color:#9CA3AF;font-size:12px}
+nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#D1D5DB;text-decoration:none;margin-bottom:3px;cursor:pointer}
+nav a:hover{background:var(--side2)}nav a.on{background:#2B3445;color:#fff;font-weight:600}
+nav .cnt{margin-left:auto;background:var(--gold);color:#fff;font-size:12px;font-weight:700;border-radius:10px;padding:1px 8px}
+.foot{margin-top:auto;font-size:12px;color:#9CA3AF;padding:10px 6px;line-height:1.5;border-top:1px solid #374151}
+main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+header{min-height:60px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 24px;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0}
+.hr{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px;color:var(--muted)}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px}
+#view{flex:1;overflow:auto;padding:22px 24px 40px}
+.grid{display:grid;gap:16px}.k4{grid-template-columns:repeat(4,minmax(0,1fr))}.k2{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
+@media (max-width:1100px){.k4{grid-template-columns:repeat(2,minmax(0,1fr))}.k2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0}
+.card h3{margin:0 0 10px;font-size:15px}.card h3 small{color:var(--muted);font-weight:500;margin-left:6px}
+.kpi .l{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.kpi .v{font-size:28px;font-weight:800;margin:6px 0 2px}.kpi .s{font-size:13px;color:var(--muted)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.click{cursor:pointer}tr.click:hover td{background:#FAFAF5}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip{display:inline-block;font-size:11.5px;font-weight:800;border-radius:6px;padding:3px 8px;letter-spacing:.3px;white-space:nowrap}
+.s-ALERT,.s-TRADED{background:var(--green-bg);color:var(--green)}.s-NO_TRADE{background:var(--amber-bg);color:var(--amber)}
+.s-QUIET{background:var(--slate-bg);color:var(--slate)}.s-WARMUP{background:#F3F4F6;color:#6B7280;border:1px dashed #9CA3AF}.s-SIGNAL{background:var(--blue-bg);color:var(--blue)}
+.ok{color:var(--green)}.bad{color:var(--red)}.muted{color:var(--muted)}
+.banner{border-radius:10px;padding:11px 15px;font-size:14px;margin-bottom:14px}
+.gate{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.gate:last-child{border:0}.gi{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;font-size:13px;flex-shrink:0}
+.err{padding:30px;color:var(--red)}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:13px}
+.tip{position:fixed;pointer-events:none;background:#111827;color:#fff;font-size:13px;border-radius:8px;padding:8px 11px;line-height:1.45;display:none;z-index:9}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><div class="logo">Au</div><div><b>Gold Spread Monitor</b><small>Binary Bridge</small></div></div>
+  <nav id="nav">
+    <a data-r="overview">Overview</a>
+    <a data-r="pairs">Pairs<span class="cnt" id="ncnt" hidden></span></a>
+    <a data-r="decisions">Decision log</a>
+    <a data-r="risk">Risk &amp; margin</a>
+    <a data-r="data">Data quality</a>
+    <a data-r="backtest">Backtest</a>
+  </nav>
+  <div class="foot" id="foot">Connecting to API…</div>
+</aside>
+<main>
+  <header><h1 id="ttl">Overview</h1><span class="pill" id="srcpill" hidden></span>
+    <div class="hr"><span id="runinfo"></span></div></header>
+  <div id="view"><div class="muted" style="padding:30px">Loading…</div></div>
+</main>
+<div class="tip" id="tip"></div>
+<script>
+// API base: same origin by default; override with ?api=https://your-api.onrender.com
+const API = (new URLSearchParams(location.search).get("api") || window.MCX_API || "").replace(/\/$/, "");
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const inr = v => v == null ? "–" : "₹" + Math.round(v).toLocaleString("en-IN");
+const n = (v, d = 2, sign = false) => v == null ? "–" : (sign && v > 0 ? "+" : "") + Number(v).toFixed(d);
+const pct = (v, d = 1) => v == null ? "–" : (v * 100).toFixed(d) + "%";
+const fdate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", {day: "2-digit", month: "short", year: "numeric"}) : "–";
+const chip = s => `<span class="chip s-${esc(s)}">${esc(String(s).replace("_", " "))}</span>`;
+const pairUrl = p => p.replace("/", "-");
+const GATES = {gate_history: "Enough history", gate_stationary: "Spread mean-reverts (ADF)", gate_halflife: "Half-life short enough", gate_magnitude: "Gap big enough to beat costs"};
+
+async function get(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.status + " " + r.statusText);
+  return r.json();
+}
+
+// ------------------------------------------------------------------ views
+const V = {};
+V.overview = async () => {
+  const o = await get("/api/overview"), m = o.meta, s = o.summary;
+  return `
+  ${s.WARMUP ? `<div class="banner" style="background:var(--blue-bg);color:var(--blue)"><b>Warming up on real data.</b> ${s.WARMUP} pairs need more history before they can be scored (${m.sessions} session${m.sessions === 1 ? "" : "s"} loaded so far). Prices, contract conversion and data checks below are live.</div>` : ""}
+  ${m.sample_data ? `<div class="banner" style="background:var(--gold-bg);color:var(--gold-t)"><b>Sample data.</b> This run uses the synthetic generator in MCX bhavcopy format. Run the nightly job with <span class="mono">--source csv</span> on downloaded bhavcopy for real market numbers.</div>` : ""}
+  <div class="grid k4">
+    <div class="card kpi"><div class="l">Latest session</div><div class="v" style="font-size:22px;margin:10px 0 6px">${fdate(m.asof)}</div>
+      <div class="s">${o.data_quality.rows_out.toLocaleString("en-IN")} validated rows · ${o.data_quality.date_echo_rows.toLocaleString("en-IN")} wrong-date rows caught</div></div>
+    <div class="card kpi"><div class="l">Alerts</div><div class="v ok">${s.ALERT}</div><div class="s">gates and risk checks passed</div></div>
+    <div class="card kpi"><div class="l">No trade</div><div class="v" style="color:var(--amber)">${s.NO_TRADE}</div><div class="s">unusual, but a gate refused</div></div>
+    <div class="card kpi"><div class="l">${s.WARMUP ? "Quiet / warming up" : "Quiet"}</div><div class="v">${s.QUIET}${s.WARMUP ? ` <span class="muted" style="font-size:20px">/ ${s.WARMUP}</span>` : ""}</div><div class="s">${s.WARMUP ? "nothing unusual / not enough history yet" : "nothing unusual"}</div></div>
+  </div>
+  <div class="grid k2" style="margin-top:16px">
+    <div class="card"><h3>Contracts <small>front month, converted to ₹ per gram of pure gold</small></h3><div class="tw">
+      <table><tr><th>Contract</th><th>Expiry</th><th class="num">Close</th><th>Quoted per</th><th>Purity</th><th class="num">₹/g pure</th><th>Tradable</th></tr>
+      ${o.contracts.map(c => `<tr data-tip="${esc(c.symbol)}: ₹${Math.round(c.close).toLocaleString("en-IN")} ÷ (${c.quote_base_g} g × ${c.purity}) = <b>₹${Math.round(c.inr_per_g_fine).toLocaleString("en-IN")}</b> per g">
+        <td><b>${esc(c.symbol)}</b></td><td>${fdate(c.expiry_date)}</td><td class="num">${inr(c.close)}</td><td>${c.quote_base_g} g</td><td>${c.purity}</td>
+        <td class="num"><b>${inr(c.inr_per_g_fine)}</b></td><td>${c.tradable ? '<span class="ok">yes</span>' : '<span class="bad">no</span>'} <span class="muted">${c.volume == null ? "–" : Number(c.volume).toLocaleString("en-IN")} lots</span></td></tr>`).join("")}
+      </table></div></div>
+    <div class="card"><h3>Gold, ₹ per 10 g fine <small>fitted level, last ${o.gold_level.length} sessions</small></h3>${lineChart(o.gold_level.map(g => g.inr_per_10g_fine), 520, 250)}</div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Backtest verdict</h3><div>${esc(o.verdict.headline)}</div></div>`;
+};
+
+V.pairs = async () => {
+  const ps = await get("/api/pairs");
+  return `<div class="card"><h3>Pairs on the latest session <small>contracts matched by expiry; normal expiry gap removed before scoring</small></h3><div class="tw">
+  <table><tr><th>Pair</th><th>Matched expiry</th><th class="num">Spread</th><th class="num">Extra vs normal</th><th class="num">z</th><th class="num">Half-life</th><th>Decision</th><th>Reason</th></tr>
+  ${ps.map(p => `<tr class="click" data-go="pair/${pairUrl(p.pair)}"><td><b>${esc(p.pair)}</b></td><td>${p.maturity_matched ? "yes" : "carry-bridged"}</td>
+    <td class="num">${n(p.spread_bp, 1, true)} bp</td><td class="num">${n(p.dislocation_bp, 1, true)} bp</td><td class="num"><b>${n(p.z)}</b></td>
+    <td class="num">${p.halflife == null ? "∞" : n(p.halflife, 1)}</td><td>${chip(p.status)}</td><td class="muted">${esc(p.reason)}</td></tr>`).join("")}
+  </table></div></div>`;
+};
+
+V.pair = async (id) => {
+  const p = await get("/api/pairs/" + id), r = p.risk || {};
+  const gates = Object.entries(p.gates).map(([k, ok]) => `<div class="gate"><div class="gi" style="background:${ok == null ? "#9CA3AF" : ok ? "var(--green)" : "var(--red)"}">${ok == null ? "–" : ok ? "✓" : "✕"}</div><div>${esc(GATES[k] || k)}${ok == null ? ' <span class="muted">not tested yet</span>' : ""}</div></div>`).join("");
+  return `<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap"><button class="btn" data-go="pairs">← Pairs</button>
+    <h2 style="margin:0;font-size:22px">${esc(p.pair)}</h2>${chip(p.status)}<span class="muted">${esc(p.reason)}</span></div>
+  <div class="grid k2">
+    <div class="card"><h3>Spread vs its own history <small>band = trailing centre ± ${p.z_entry}×scale, data to the previous session only</small></h3>${bandChart(p.history, p.z_entry, 820, 320)}
+      <div style="margin-top:10px${p.status === "WARMUP" ? ";display:none" : ""}">Today: spread ${n(p.spread_bp, 1, true)} bp, centre ${n(p.centre_bp, 1, true)} bp, z = <b>${n(p.z)}</b>, half-life ${p.halflife == null ? "∞" : n(p.halflife, 1)} sessions, ADF t ${n(p.adf_t)}</div></div>
+    <div class="card"><h3>Statistical gates</h3>${gates}
+      <h3 style="margin-top:16px">Risk board</h3>
+      ${p.risk ? `<table>
+        <tr><td>Action</td><td><b>${esc(r.action)}</b> <span class="muted">${esc(r.reason || "")}</span></td></tr>
+        <tr><td>Lots</td><td>${r.lots_a == null ? "–" : `${r.lots_a} × ${esc(p.sym_a)} · ${r.lots_b} × ${esc(p.sym_b)}`}</td></tr>
+        <tr><td>Notional</td><td>${inr(r.notional_exposure)}</td></tr>
+        <tr><td>Margin if added</td><td>${inr(r.marginal_margin)} ${r.floor_binds ? '<span class="muted">(6% floor binds)</span>' : ""}</td></tr>
+        <tr><td>Utilisation if added</td><td>${pct(r.utilisation_if_added)}${r.buffer_state ? " · buffer " + esc(r.buffer_state) : ""}</td></tr>
+        <tr><td>SPAN change (21 sessions)</td><td>${pct(r.span_change_pct)}</td></tr></table>` : `<div class="muted">not priced</div>`}
+    </div></div>
+  <div class="card" style="margin-top:16px"><h3>Recent unusual sessions for this pair</h3>${decisionTable(p.recent_decisions)}</div>`;
+};
+
+function decisionTable(items) {
+  if (!items.length) return `<div class="muted">None in the window.</div>`;
+  return `<div class="tw"><table><tr><th>Date</th><th>Pair</th><th class="num">z</th><th class="num">Extra</th><th>Decision</th><th>Reason</th></tr>
+  ${items.map(d => `<tr><td>${fdate(d.date)}</td><td><b>${esc(d.pair)}</b></td><td class="num">${n(d.z)}</td><td class="num">${n(d.dislocation_bp, 1, true)} bp</td><td>${chip(d.status)}</td><td class="muted">${esc(d.reason)}</td></tr>`).join("")}</table></div>`;
+}
+
+V.decisions = async () => {
+  const d = await get("/api/decisions?limit=200"), c = d.counts;
+  return `<div class="grid k4" style="margin-bottom:16px">
+    <div class="card kpi"><div class="l">Unusual sessions</div><div class="v">${d.total}</div><div class="s">|z| at or above entry, recent window</div></div>
+    <div class="card kpi"><div class="l">Traded</div><div class="v ok">${c.TRADED || 0}</div><div class="s">entered next session</div></div>
+    <div class="card kpi"><div class="l">Signal, not entered</div><div class="v" style="color:var(--blue)">${c.SIGNAL || 0}</div><div class="s">book full or could not size</div></div>
+    <div class="card kpi"><div class="l">No trade</div><div class="v" style="color:var(--amber)">${c.NO_TRADE || 0}</div><div class="s">each with the gate that refused</div></div></div>
+  <div class="card"><h3>Decision log <small>every unusual pair-session and what decided it</small></h3>${decisionTable(d.items)}</div>`;
+};
+
+V.risk = async () => {
+  const rb = await get("/api/risk");
+  return `<div class="card"><h3>Risk board <small>margin is costed marginally against the open book; the board exists to say no</small></h3><div class="tw">
+  <table><tr><th>Pair</th><th>Action</th><th>Reason</th><th class="num">Notional</th><th class="num">Margin if added</th><th class="num">Utilisation</th><th>Buffer</th><th class="num">SPAN Δ</th></tr>
+  ${rb.map(r => `<tr><td><b>${esc(r.pair)}</b></td><td>${esc(r.action || "–")}</td><td class="muted">${esc(r.reason || "")}</td><td class="num">${inr(r.notional_exposure)}</td>
+    <td class="num">${inr(r.marginal_margin)}</td><td class="num">${pct(r.utilisation_if_added)}</td><td>${esc(r.buffer_state || "–")}</td><td class="num">${pct(r.span_change_pct)}</td></tr>`).join("")}
+  </table></div><div class="muted" style="margin-top:10px;font-size:13px">SPAN parameters are estimated from observed volatility unless MCX risk files are loaded (scripts/load_risk_params.py).</div></div>`;
+};
+
+V.data = async () => {
+  const q = await get("/api/data-quality");
+  return `<div class="grid k4" style="margin-bottom:16px">
+    <div class="card kpi"><div class="l">Rows received</div><div class="v">${q.rows_in.toLocaleString("en-IN")}</div><div class="s">raw bhavcopy rows</div></div>
+    <div class="card kpi"><div class="l">Rows validated</div><div class="v">${q.rows_out.toLocaleString("en-IN")}</div><div class="s">one per contract per session</div></div>
+    <div class="card kpi"><div class="l">Wrong-date rows</div><div class="v bad">${(q.flags.date_echo_rows || 0).toLocaleString("en-IN")}</div><div class="s">MCX returned another day</div></div>
+    <div class="card kpi"><div class="l">Run</div><div class="v mono" style="font-size:18px;margin:12px 0 6px">${esc(q.run_id)}</div><div class="s" data-tip="SHA-256 of the validated input<br><span class='mono'>${esc(q.data_fingerprint)}</span>">hover for full fingerprint</div></div></div>
+  <div class="grid k2"><div class="card"><h3>Data-quality flags <small>every problem is a column, never a silent fix</small></h3><table>
+    ${Object.entries(q.flags).map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="num">${v.toLocaleString("en-IN")}</td></tr>`).join("")}</table></div>
+  <div class="card"><h3>Wrong-date examples <small>requested vs returned</small></h3><table><tr><th>Requested</th><th>File said</th></tr>
+    ${q.date_echo_examples.map(e => `<tr><td>${esc(e[0])}</td><td class="bad">${esc(e[1])}</td></tr>`).join("") || '<tr><td class="muted" colspan="2">none</td></tr>'}</table></div></div>`;
+};
+
+V.backtest = async () => {
+  const b = await get("/api/backtest"), p = b.performance;
+  return `<div class="banner" style="background:${b.verdict.edge_survives_costs ? "var(--green-bg);color:var(--green)" : "var(--amber-bg);color:var(--amber)"}"><b>${esc(b.verdict.headline)}</b></div>
+  <div class="grid k4" style="margin-bottom:16px">
+    <div class="card kpi"><div class="l">Trades</div><div class="v">${p.n_trades ?? 0}</div><div class="s">walk-forward, next-session fills</div></div>
+    <div class="card kpi"><div class="l">Gross per trade</div><div class="v">${n(p.mean_gross_bp, 1, true)} bp</div><div class="s">hit rate ${pct(p.hit_rate_gross, 0)}</div></div>
+    <div class="card kpi"><div class="l">Net per trade</div><div class="v ${p.mean_net_bp > 0 ? "ok" : "bad"}">${n(p.mean_net_bp, 1, true)} bp</div><div class="s">after fees, taxes, slippage</div></div>
+    <div class="card kpi"><div class="l">Peak margin</div><div class="v" style="font-size:22px;margin:10px 0 6px">${inr(p.peak_margin)}</div><div class="s">return on margin ${pct(p.ann_return_on_margin, 2)} a year</div></div></div>
+  <div class="card"><h3>Trades</h3><div class="tw"><table><tr><th>Pair</th><th>Entry</th><th>Exit</th><th class="num">Lots</th><th class="num">Entry z</th><th class="num">Gross</th><th class="num">Net</th><th>Exit reason</th></tr>
+  ${b.trades.map(t => `<tr><td><b>${esc(t.pair)}</b></td><td>${fdate(t.entry_date)}</td><td>${fdate(t.exit_date)}</td><td class="num">${t.lots_a} / ${t.lots_b}</td><td class="num">${n(t.entry_z)}</td>
+    <td class="num">${n(t.gross_bp, 1, true)} bp</td><td class="num ${t.net_bp > 0 ? "ok" : "bad"}">${n(t.net_bp, 1, true)} bp</td><td>${esc(t.exit_reason)}</td></tr>`).join("") || '<tr><td colspan="8" class="muted">No trades.</td></tr>'}</table></div>
+  ${p.tstat_caveat ? `<div class="muted" style="margin-top:10px;font-size:13px">${esc(p.tstat_caveat)}</div>` : ""}</div>`;
+};
+
+// ------------------------------------------------------------------ charts (SVG, no library)
+function lineChart(v, W, H) {
+  if (!v.length) return `<div class="muted">no data</div>`;
+  const pl = 62, pr = 10, pt = 10, pb = 22, mn = Math.min(...v), mx = Math.max(...v), rg = (mx - mn) || 1;
+  const X = i => pl + (W - pl - pr) * i / Math.max(1, v.length - 1), Y = x => pt + (H - pt - pb) * (mx - x) / rg;
+  const d = v.map((x, i) => (i ? "L" : "M") + X(i).toFixed(1) + "," + Y(x).toFixed(1)).join("");
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}">${[mn, (mn + mx) / 2, mx].map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="#EEF0F3"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="#6B7280">${Math.round(t).toLocaleString("en-IN")}</text>`).join("")}
+    <path d="${d} L${X(v.length - 1)},${H - pb} L${pl},${H - pb}Z" fill="#FDF3E6"/><path d="${d}" fill="none" stroke="#D97A1E" stroke-width="2"/></svg>`;
+}
+function bandChart(h, zE, W, H) {
+  const s = h.filter(x => x.spread_bp != null && x.centre != null && x.scale != null);
+  if (s.length < 2) return `<div class="muted">not enough history</div>`;
+  const pl = 54, pr = 12, pt = 10, pb = 24;
+  const ys = s.flatMap(x => [x.spread_bp, x.centre + zE * x.scale, x.centre - zE * x.scale]), mn = Math.min(...ys), mx = Math.max(...ys);
+  const X = i => pl + (W - pl - pr) * i / (s.length - 1), Y = v => pt + (H - pt - pb) * (mx - v) / ((mx - mn) || 1);
+  const up = s.map((x, i) => X(i).toFixed(1) + "," + Y(x.centre + zE * x.scale).toFixed(1)), lo = s.map((x, i) => X(i).toFixed(1) + "," + Y(x.centre - zE * x.scale).toFixed(1)).reverse();
+  const path = f => s.map((x, i) => (i ? "L" : "M") + X(i).toFixed(1) + "," + Y(f(x)).toFixed(1)).join("");
+  window._band = {s, X, W};
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" id="band">${[mn, (mn + mx) / 2, mx].map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="#EEF0F3"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="#6B7280">${t.toFixed(0)} bp</text>`).join("")}
+    <polygon points="${up.concat(lo).join(" ")}" fill="#EEF2F7"/><path d="${path(x => x.centre)}" fill="none" stroke="#9CA3AF" stroke-dasharray="5 5"/>
+    <path d="${path(x => x.spread_bp)}" fill="none" stroke="#2E6DA4" stroke-width="2"/>
+    ${s.map((x, i) => x.z != null && Math.abs(x.z) >= zE ? `<circle cx="${X(i)}" cy="${Y(x.spread_bp)}" r="${x.signal_ok ? 5 : 3.5}" fill="${x.signal_ok ? "#15803D" : "#D97A1E"}" stroke="#fff"/>` : "").join("")}
+    <text x="${pl}" y="${H - 6}" font-size="11" fill="#6B7280">${fdate(s[0].date)}</text><text x="${W - pr}" y="${H - 6}" font-size="11" fill="#6B7280" text-anchor="end">${fdate(s[s.length - 1].date)}</text></svg>
+    <div class="muted" style="font-size:12px;margin-top:4px"><span style="color:#15803D">●</span> unusual and all gates passed &nbsp; <span style="color:#D97A1E">●</span> unusual, a gate refused</div>`;
+}
+
+// ------------------------------------------------------------------ router
+const TITLES = {overview: "Overview", pairs: "Pairs", pair: "Pair detail", decisions: "Decision log", risk: "Risk & margin", data: "Data quality", backtest: "Backtest"};
+async function render() {
+  const [r, arg] = (location.hash.replace("#/", "") || "overview").split("/");
+  const route = V[r] ? r : "overview";
+  $("#ttl").textContent = TITLES[route];
+  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === route || (route === "pair" && a.dataset.r === "pairs")));
+  try { $("#view").innerHTML = await V[route](arg); }
+  catch (e) { $("#view").innerHTML = `<div class="err"><b>Could not load ${esc(route)}.</b><br>${esc(e.message)}<br><span class="muted">API: ${esc(API || location.origin)}</span></div>`; }
+}
+async function boot() {
+  try {
+    const h = await get("/api/health");
+    if (!h.ok) throw new Error(h.reason);
+    $("#runinfo").innerHTML = `run <span class="mono">${esc(h.run_id)}</span> · built ${new Date(h.generated_at).toLocaleString("en-IN", {dateStyle: "medium", timeStyle: "short"})}`;
+    $("#foot").innerHTML = `Source: ${esc(h.source)}<br>As of ${fdate(h.asof)}<br>Rule-based engine; no AI in the decision`;
+    const p = $("#srcpill"); p.hidden = false;
+    p.textContent = h.sample_data ? "SAMPLE DATA" : "MCX DATA";
+    p.style.cssText = h.sample_data ? "background:var(--gold-bg);color:var(--gold-t)" : "background:var(--green-bg);color:var(--green)";
+    const ov = await get("/api/overview");
+    if (ov.summary.ALERT) { const c = $("#ncnt"); c.hidden = false; c.textContent = ov.summary.ALERT; }
+  } catch (e) { $("#foot").textContent = "API unreachable: " + e.message; }
+  render();
+}
+window.addEventListener("hashchange", render);
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-r]"); if (a) { location.hash = "#/" + a.dataset.r; return; }
+  const g = e.target.closest("[data-go]"); if (g) location.hash = "#/" + g.dataset.go;
+});
+const tip = $("#tip");
+document.addEventListener("mousemove", e => {
+  const t = e.target.closest("[data-tip]");
+  if (t) { tip.innerHTML = t.dataset.tip; tip.style.display = "block"; tip.style.left = e.clientX + 14 + "px"; tip.style.top = e.clientY + 12 + "px"; }
+  else tip.style.display = "none";
+});
+boot();
+</script>
+</body>
+</html>

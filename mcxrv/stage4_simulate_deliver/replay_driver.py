@@ -31,9 +31,9 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from . import costs as costs_mod
-from . import margin as margin_mod
-from . import specs
+from ..stage3_gates_decision import liquidity_cost as costs_mod
+from ..stage3_gates_decision import margin_capital as margin_mod
+from ..stage1_intake import specs
 
 
 @dataclass

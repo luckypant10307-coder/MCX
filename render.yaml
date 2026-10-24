@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: mcx-gold-spread-monitor
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: CORS_ORIGINS
+        value: "*"
