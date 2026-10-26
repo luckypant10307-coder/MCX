@@ -800,6 +800,24 @@ in seconds with real data. `render.yaml` is a Blueprint: in Render, New > Bluepr
 pick this repo. Put the service's Deploy Hook URL in the GitHub secret
 `SNAPSHOT_DEPLOY_HOOK` and the nightly workflow will rebuild it with fresh data.
 
+**MCXCCL risk files (drop folder).** mcxccl.com refuses scripted requests (HTTP 403,
+even for `robots.txt`), and this project does not work around that. Instead, save
+the day's margin or SPAN file from the site in a browser into `data/risk/inbox/`.
+The nightly job validates each file with the strict parser, moves it to
+`data/risk/accepted/` (named by business date) or `data/risk/rejected/` with a
+`.reason.txt`, logs the decision, and uses accepted scan ranges for exactly the
+sessions they cover; every other session keeps the volatility estimate and is
+labelled as such. Status is at `GET /api/risk-files` and on the Data & audit page.
+
+**MCX circular watch.** With `TINYFISH_API_KEY` set (in `.env` locally, or as an
+environment variable on Render), the nightly job searches public pages through
+TinyFish for new MCX margin, contract-specification and new-contract circulars,
+remembers links already seen, shows them on the Data & audit page
+(`GET /api/circulars`) and sends new ones to Telegram when configured. On Render the
+image is built without the key, so the server runs the search on demand and caches
+it for six hours. These are search results, not an official feed: open the circular
+itself before acting on it.
+
 **What is not done yet.** The live MCX source still depends on MCX's endpoint
 accepting requests from wherever the job runs; on GitHub-hosted runners, download the
 bhavcopy separately and use `--source csv`.

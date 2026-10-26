@@ -21,7 +21,8 @@ from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mcxrv import notify, pipeline, snapshot  # noqa: E402
+from mcxrv import circulars, notify, pipeline, risk_inbox, snapshot  # noqa: E402
+from mcxrv.stage1_intake.config import load_dotenv  # noqa: E402
 
 
 def parse_args(argv=None):
@@ -40,6 +41,10 @@ def parse_args(argv=None):
     p.add_argument("--out", default=os.environ.get("MCX_SNAPSHOT_PATH",
                                                    "data/processed/snapshot.json"))
     p.add_argument("--no-notify", action="store_true")
+    p.add_argument("--risk-dir", default="data/risk",
+                   help="drop folder for MCXCCL risk files (inbox/ accepted/ rejected/)")
+    p.add_argument("--no-circulars", action="store_true",
+                   help="skip the TinyFish search for new MCX circulars")
     return p.parse_args(argv)
 
 
@@ -59,13 +64,25 @@ def main(argv=None) -> int:
         start = None                    # everything on disk / in the store
     else:
         start = end - timedelta(days=450)
+    load_dotenv()                       # TINYFISH_API_KEY / TELEGRAM_* from a local .env
+    # 1. Risk files someone saved into the inbox since the last run.
+    inbox = risk_inbox.process(a.risk_dir)
+    for d in inbox:
+        print("risk file {}: {}{}".format(d["file"], d["status"],
+                                          "" if d["status"] == "ACCEPTED" else " - " + d["reason"]))
     cfg = pipeline.PipelineConfig(source=a.source, start=start, end=end,
                                   csv_dir=a.csv_dir, seed=a.seed, z_entry=a.z_entry,
-                                  account_capital=a.account_capital)
+                                  account_capital=a.account_capital, risk_dir=a.risk_dir)
     t0 = time.time()
     result = pipeline.run(cfg)
     archive = snapshot.archive_log(a.csv_dir) if a.source == "csv" else None
     snap = snapshot.build(result, archive=archive)
+    sessions = sorted(result.quotes["date"].unique()) if result.quotes is not None and not result.quotes.empty else []
+    snap["risk_files"] = snapshot.clean(risk_inbox.status(a.risk_dir, sessions))
+    # 2. New MCX circulars, via TinyFish search (skipped without TINYFISH_API_KEY).
+    circ = ({"available": False, "reason": "skipped (--no-circulars)"} if a.no_circulars else
+            circulars.check(seen_path=os.path.join(os.path.dirname(a.out) or ".", "circulars_seen.json")))
+    snap["circulars"] = snapshot.clean(circ)
     prev = snapshot.load(a.out)
     snapshot.save(snap, a.out)
 
@@ -83,9 +100,18 @@ def main(argv=None) -> int:
             p["pair"], p["status"], "n/a" if p["z"] is None else "{:+.2f}".format(p["z"]),
             p["reason"]))
     print(snap["backtest"]["verdict"]["headline"])
+    print("margin parameters: {}".format(snap["meta"].get("span_parameters")))
+    if circ.get("available"):
+        print("circulars: {} relevant, {} new".format(len(circ["items"]), circ["new"]))
+    else:
+        print("circulars: {}".format(circ.get("reason")))
     print("snapshot -> {}".format(a.out))
 
     if not a.no_notify:
+        text = circulars.message(circ)
+        if text:
+            r = notify.send(text)
+            print("telegram [circulars] {}".format("sent" if r.get("sent") else r.get("reason", "not sent")))
         sent = notify.notify(prev, snap)
         if not sent:
             print("telegram: nothing changed, no message")
