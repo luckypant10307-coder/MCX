@@ -175,6 +175,12 @@ tr.go:hover td { background: rgba(127, 140, 160, 0.08); }
 .stepper button:active { box-shadow: var(--inset-sm); }
 .stepper output { min-width: 74px; text-align: center; font-size: 22px; font-weight: 800; padding: 8px 0; border-radius: var(--radius-sm); box-shadow: var(--inset-sm); }
 
+/* drawdown meter: an inset groove, filled to today's drawdown, with the limit marked */
+.meter { position: relative; height: 18px; border-radius: 999px; box-shadow: var(--inset-sm); margin: 18px 0 6px; }
+.meter .fill { position: absolute; left: 4px; top: 4px; bottom: 4px; border-radius: 999px; background: var(--gold); max-width: calc(100% - 8px); }
+.meter .fill.bad { background: var(--bad); }
+.meter .limit { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--ink); }
+.meter .limit span { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11.5px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
 .verdict { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .verdict .t { display: flex; align-items: center; gap: 14px; }
 .prop { display: flex; gap: 6px; height: 34px; }

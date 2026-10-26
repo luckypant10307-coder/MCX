@@ -129,15 +129,42 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
 
         asof = max(pairs["date"])
         book = risk.open_book_from_trades(rows, trades, asof)
-        board = risk.board(rows, pairs,
-                           # Same runway rule the backtest enters with, so a live
-                           # alert never proposes a trade the backtest would refuse.
-                           risk.RiskBoardConfig(
-                               account_capital=cfg.account_capital,
-                               min_sessions_to_expiry=bcfg.min_sessions_to_expiry_entry),
+        rb_cfg = risk.RiskBoardConfig(
+            account_capital=cfg.account_capital,
+            # Same runway rule the backtest enters with, so a live alert never
+            # proposes a trade the backtest would refuse.
+            min_sessions_to_expiry=bcfg.min_sessions_to_expiry_entry)
+        account = account_state(bt_daily, cfg.account_capital, rb_cfg.max_drawdown_pct)
+        board = risk.board(rows, pairs, rb_cfg,
                            span_params=sp, margin_schedule=msched,
-                           bt_cfg=bcfg, open_book=book)
+                           bt_cfg=bcfg, open_book=book,
+                           account_drawdown_inr=account.get("drawdown_inr"))
+    else:
+        account = {}
 
     return PipelineResult(cfg, report, quotes, rows, daily, prem, pairs, trades,
                           bt_daily, perf, board, span_source=str(sp.source),
-                          notes={"z_entry": cfg.z_entry, "z_exit": scfg.z_exit})
+                          notes={"z_entry": cfg.z_entry, "z_exit": scfg.z_exit,
+                                 "account": account})
+
+
+def account_state(bt_daily: pd.DataFrame, capital: float, limit_pct: float) -> dict:
+    """
+    Where the account stands against its kill switch, from the walk-forward book.
+
+    Value = capital + cumulative net P&L (realised + open MTM). Drawdown is measured
+    from the highest value reached, starting capital included, so a book that only
+    ever lost is in drawdown from day one.
+    """
+    if bt_daily is None or bt_daily.empty or "equity" not in bt_daily.columns:
+        return {}
+    value = capital + bt_daily["equity"].astype(float)
+    peak = max(capital, float(value.max()))
+    now = float(value.iloc[-1])
+    dd = max(0.0, peak - now)
+    peak_date = bt_daily["date"].iloc[int(value.values.argmax())] if value.max() >= capital else None
+    return {"capital": capital, "value_now": now, "peak_value": peak, "peak_date": peak_date,
+            "drawdown_inr": dd, "drawdown_pct": dd / capital if capital else None,
+            "limit_pct": limit_pct, "halted": dd >= limit_pct * capital,
+            # Deepest fall below a running peak (starting capital counts as a peak).
+            "max_drawdown_inr": float((value.cummax().clip(lower=capital) - value).max())}

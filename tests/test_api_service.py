@@ -37,9 +37,23 @@ def test_health(store, small_snapshot):
 
 def test_overview(store, small_snapshot):
     o = service.overview(store)
-    assert set(o) == {"meta", "summary", "contracts", "verdict", "data_quality", "gold_level"}
+    assert set(o) == {"meta", "summary", "contracts", "verdict", "data_quality", "gold_level", "account"}
     assert o["data_quality"]["rows_out"] == small_snapshot["data_quality"]["rows_out"]
+    # Kill-switch state travels with the overview so every page can show it.
+    a = o["account"]
+    if a:
+        assert {"drawdown_pct", "limit_pct", "halted", "peak_value", "value_now"} <= set(a)
+        assert a["halted"] == (a["drawdown_inr"] >= a["limit_pct"] * a["capital"])
     json.dumps(o, allow_nan=False)
+
+
+def test_anomaly_review_is_served_and_never_claims_more_than_it_scored(store):
+    a = service.anomalies(store)
+    if a["available"]:
+        assert 0 <= a["flagged"] <= a["rows_scored"]
+        assert a["flagged_new"] + a["flagged_known"] == a["flagged"]
+        assert len(a["top"]) <= 30
+    json.dumps(a, allow_nan=False)
 
 
 def test_pairs_filter_and_hide_risk(store):
