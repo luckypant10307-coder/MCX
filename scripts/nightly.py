@@ -17,7 +17,7 @@ import json
 import os
 import sys
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -31,8 +31,9 @@ def parse_args(argv=None):
     p.add_argument("--start", default=None,
                    help="default: all stored history for csv/db (the research view needs "
                         "every session); 450 days before --end for synthetic/live")
-    p.add_argument("--end", default="2026-09-18",
-                   help="last session to include (synthetic default matches the README)")
+    p.add_argument("--end", default=None,
+                   help="last session to include. Default: today for real data (csv, "
+                        "db, live); 2026-09-18 for synthetic, matching the README")
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--z-entry", type=float, default=2.0)
     p.add_argument("--account-capital", type=float, default=1_000_000.0)
@@ -44,7 +45,14 @@ def parse_args(argv=None):
 
 def main(argv=None) -> int:
     a = parse_args(argv)
-    end = datetime.strptime(a.end, "%Y-%m-%d").date()
+    if a.end:
+        end = datetime.strptime(a.end, "%Y-%m-%d").date()
+    elif a.source == "synthetic":
+        end = datetime(2026, 9, 18).date()
+    else:
+        # Real data: everything up to the latest session on hand. A fixed default
+        # here silently cut off every session after it.
+        end = datetime.now(timezone.utc).date()
     if a.start:
         start = datetime.strptime(a.start, "%Y-%m-%d").date()
     elif a.source in ("csv", "db"):

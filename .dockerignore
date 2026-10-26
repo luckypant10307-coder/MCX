@@ -1,7 +1,18 @@
 .git
+.github
 .venv*
 __pycache__
+**/__pycache__
 .pytest_cache
-data/processed
-data/raw
 .env
+# Data is downloaded fresh inside the build, never copied from a developer machine.
+data/raw
+data/processed
+data/interim
+reports
+tests
+# Editor and local agent settings
+.vscode
+.kilo
+.alpme
+.claude
