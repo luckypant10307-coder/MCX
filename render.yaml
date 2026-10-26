@@ -1,8 +1,16 @@
+# Render Blueprint. In the Render Dashboard: New > Blueprint, pick this repo.
+#
+# The image downloads the MCX data and builds the snapshot during the build (see
+# Dockerfile), so a deploy IS a data refresh. To refresh nightly, copy this
+# service's Deploy Hook URL into the GitHub secret SNAPSHOT_DEPLOY_HOOK; the
+# "nightly snapshot" workflow calls it.
 services:
   - type: web
     name: mcx-gold-spread-monitor
     runtime: docker
     plan: free
+    branch: main
+    autoDeploy: true
     healthCheckPath: /api/health
     envVars:
       - key: CORS_ORIGINS
