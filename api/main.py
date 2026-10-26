@@ -77,6 +77,12 @@ def backtest():
     return _wrap(service.backtest)
 
 
+@app.get("/api/anomalies")
+def anomalies():
+    """Isolation Forest review queue: flagged rows for a human. Never gates data."""
+    return _wrap(service.anomalies)
+
+
 @app.get("/api/settings")
 def settings():
     """Engine parameters used by this run, and per-pair z history for what-if counts."""

@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, Scatter, XAxis, YAxis } from "recharts";
-import { usePair, useRisk, type Leg, type PairDetail as PD, type Risk } from "../api";
+import { useOverview, usePair, useRisk, type Account, type Leg, type PairDetail as PD, type Risk } from "../api";
 import { bp, compact, fdate, fexp, fin, fmon, inr, ms, num, pct, vs } from "../format";
 import { usePalette } from "../theme";
 import { Box, SoftTooltip, axis } from "../components/charts";
@@ -9,12 +9,19 @@ import { Card, Chip, Legend, Loaded } from "../components/ui";
 const ENTRY_SESSIONS = 15; // BacktestConfig.min_sessions_to_expiry_entry
 
 type Check = { k: string; ok: boolean | null; d: string };
-function checks(p: PD, r: Risk): Check[] {
+function checks(p: PD, r: Risk, acct: Account | undefined): Check[] {
   const g = p.gates || {}, legs: Leg[] = p.legs ?? [];
   const left = Math.min(...legs.map((l) => (fin(l.sessions_to_expiry) ? l.sessions_to_expiry : Infinity)));
   const fundable = fin(r.utilisation_if_added) ? r.utilisation_if_added < 0.8 && !/breached|low/.test(r.buffer_state ?? "") : null;
-  const marginOk = /^(may add|add reduced size)$/.test(r.action ?? "") ? true : r.action === "no signal" ? fundable : r.action ? false : null;
-  return [
+  // Margin answers "could the account fund it?". The kill switch and "no signal" are
+  // other questions, so they fall back to the fundability test here.
+  const otherReason = r.action === "no signal" || /^account drawdown/.test(r.reason ?? "");
+  const marginOk = /^(may add|add reduced size)$/.test(r.action ?? "") ? true : otherReason ? fundable : r.action ? false : null;
+  const accountCheck: Check[] = acct && fin(acct.drawdown_pct) && fin(acct.limit_pct) ? [{
+    k: "Account", ok: !acct.halted,
+    d: `${pct(acct.drawdown_pct, 1)} below the account's peak, kill switch at ${pct(acct.limit_pct)}` + (acct.halted ? ": new exposure halted until reviewed" : ""),
+  }] : [];
+  return [...accountCheck,
     { k: "History", ok: g.gate_history ?? null, d: g.gate_history ? "enough trailing sessions to score this pair" : "not enough history to score yet" },
     { k: "Mean-reverting", ok: g.gate_stationary ?? null, d: `ADF t ${num(p.adf_t)} (needs below −2.57)` },
     { k: "Half-life", ok: g.gate_halflife ?? null, d: `${fin(p.halflife) ? num(p.halflife, 1) + " sessions" : "∞"} to close half the gap (limit 30)` },
@@ -25,7 +32,7 @@ function checks(p: PD, r: Risk): Check[] {
       d: Number.isFinite(left) ? `${left} sessions to the nearer expiry (need ${ENTRY_SESSIONS}); exit before tender` +
         (legs.some((l) => l.front_month === false) ? ". Priced in the next contract: the front month is too close to expiry." : "") : "no contract with enough runway" },
     { k: "Margin", ok: marginOk, d: r.action ? `${inr(r.marginal_margin)} if added · ${pct(r.utilisation_if_added, 1)} of capital · buffer ${r.buffer_state ?? "–"}` +
-        (r.action !== "no signal" ? ` · ${r.action}${r.reason ? ", " + r.reason : ""}` : "") : "not priced" },
+        (otherReason ? "" : ` · ${r.action}${r.reason ? ", " + r.reason : ""}`) : "not priced" },
   ];
 }
 
@@ -56,6 +63,7 @@ export default function PairDetail() {
   const { id = "" } = useParams();
   const q = usePair(id);
   const risk = useRisk();
+  const ov = useOverview();
   const p = usePalette();
   return (
     <Loaded q={q}>{(d) => {
@@ -68,7 +76,7 @@ export default function PairDetail() {
         return { t: ms(x.date), extra, band: [-w, w] as [number, number], z: x.z,
                  passed: hot && x.signal_ok ? extra : null, refused: hot && !x.signal_ok ? extra : null };
       });
-      const cs = checks(d, r);
+      const cs = checks(d, r, ov.data?.account);
       const failed = cs.filter((c) => c.ok === false).map((c) => c.k);
       const nAbs = Math.abs(d.centre_bp ?? 0), xAbs = Math.abs(d.dislocation_bp ?? 0), tot = nAbs + xAbs || 1;
       const hot = fin(d.z) && Math.abs(d.z) >= ze;
