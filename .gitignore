@@ -12,3 +12,7 @@ reports/*.csv
 reports/*.html
 reports/*.json
 reports/*.parquet
+
+# React frontend: dependencies and build output are reproduced from package-lock.json
+frontend/node_modules/
+frontend/dist/

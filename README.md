@@ -715,7 +715,7 @@ The research pipeline above answers "is there an edge?". This layer turns the sa
 pipeline into a monitor someone can open every evening.
 
 ```
-scripts/nightly.py  ->  data/processed/snapshot.json  ->  api/ (FastAPI)  ->  web/index.html
+scripts/nightly.py  ->  data/processed/snapshot.json  ->  api/ (FastAPI)  ->  frontend/ (React)
         |
         +-> Telegram: only when a pair becomes or stops being an ALERT
 ```
@@ -760,14 +760,28 @@ uvicorn api.main:app --reload        # http://localhost:8000  (docs at /docs)
 | `GET /api/risk` | risk board |
 | `GET /api/data-quality` | rows in/out, every flag count, wrong-date examples, data fingerprint |
 | `GET /api/backtest` | performance, trades, verdict |
+| `GET /api/research` | full-history evidence: event study, cost sweep, premiums, coverage, by year |
+| `GET /api/settings` | engine parameters used by the run, per-pair z history |
 
 The logic lives in `api/service.py` (no web framework imported) and is what the tests
 cover; `api/main.py` is routing only.
 
-**Dashboard.** `web/index.html` is served at `/` by the same app. It is a single file
-with no build step, so it can also be hosted on Vercel/Netlify and pointed at a
-separate API with `?api=https://your-api.example.com` (set `CORS_ORIGINS` on the API).
-A "SAMPLE DATA" badge shows whenever the snapshot came from the synthetic source.
+**Dashboard.** `frontend/` is a React 18 + TypeScript app (Vite, React Router,
+TanStack Query, Recharts) with a neumorphic, light/dark design. Pages: Overview, Pairs,
+Pair detail, Decision log, Research, Backtest, Data & audit, Settings.
+
+```bash
+cd frontend && npm ci
+npm run dev        # http://localhost:5173, proxies /api to the FastAPI server on :8000
+npm run build      # writes frontend/dist, which FastAPI then serves at /
+```
+
+When `frontend/dist` exists the API serves it at `/` (deep links such as
+`/pairs/GOLDM-GOLDTEN` work on refresh); otherwise it falls back to the single-file
+`web/index.html`, which needs no Node toolchain. The build can also be hosted on its
+own and pointed at a separate API with `?api=https://your-api.example.com` or
+`VITE_API_BASE` (set `CORS_ORIGINS` on the API). A "SAMPLE DATA" badge shows whenever
+the snapshot came from the synthetic source.
 
 **Telegram.** Create a bot with @BotFather, then set `TELEGRAM_BOT_TOKEN` and
 `TELEGRAM_CHAT_ID` in the environment (or as GitHub secrets). Messages go out only
@@ -778,12 +792,17 @@ delivery failures never fail the run.
 **Automation.** `.github/workflows/nightly.yml` runs the job at 00:15 IST on weekdays,
 keeps the previous snapshot in the Actions cache for the diff, and uploads the
 snapshot as an artifact. `.github/workflows/ci.yml` runs the test suite with a
-Postgres service. `Dockerfile` / `render.yaml` deploy API + dashboard as one service.
+Postgres service and type-checks and builds the frontend.
+
+**Deploy (Render).** `Dockerfile` builds the React app, downloads the bhavcopy from
+mtf.trading and builds the snapshot during the image build, so the container starts
+in seconds with real data. `render.yaml` is a Blueprint: in Render, New > Blueprint,
+pick this repo. Put the service's Deploy Hook URL in the GitHub secret
+`SNAPSHOT_DEPLOY_HOOK` and the nightly workflow will rebuild it with fresh data.
 
 **What is not done yet.** The live MCX source still depends on MCX's endpoint
 accepting requests from wherever the job runs; on GitHub-hosted runners, download the
-bhavcopy separately and use `--source csv`. The dashboard is plain HTML rather than
-Next.js so it runs with no toolchain; porting it later changes nothing in the API.
+bhavcopy separately and use `--source csv`.
 
 ## Known limitations
 

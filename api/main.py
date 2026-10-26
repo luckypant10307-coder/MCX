@@ -89,10 +89,27 @@ def research():
     return _wrap(service.research)
 
 
-WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# The React app (frontend/, built by `npm run build`) when present; otherwise the
+# single-file dashboard in web/, so the API still has a UI without a Node build.
+REACT_DIST = os.path.join(ROOT, "frontend", "dist")
+WEB_DIR = REACT_DIST if os.path.isfile(os.path.join(REACT_DIST, "index.html")) else os.path.join(ROOT, "web")
+
 if os.path.isdir(WEB_DIR):
+    INDEX = os.path.join(WEB_DIR, "index.html")
+    if os.path.isdir(os.path.join(WEB_DIR, "assets")):
+        # Hashed file names never change content, so they can be cached for a year.
+        app.mount("/assets", StaticFiles(directory=os.path.join(WEB_DIR, "assets")), name="assets")
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(os.path.join(WEB_DIR, "index.html"))
+        return FileResponse(INDEX, headers={"Cache-Control": "no-cache"})
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str):
+        """Client-side routes (/pairs/GOLDM-GOLDTEN, /research ...) load the app shell,
+        so a refresh or a shared link opens the right page. Unknown /api paths stay 404."""
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(INDEX, headers={"Cache-Control": "no-cache"})
