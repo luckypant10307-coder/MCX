@@ -61,6 +61,10 @@ class RiskBoardConfig:
     utilisation_block: float = 0.80
     # Runway a new position needs, in sessions, before the calendar forces it out.
     min_sessions_to_expiry: int = 5
+    # Account kill switch: no new exposure once the account is this fraction of
+    # account_capital below its peak. Checked before every other rule, because it is
+    # a statement about the account, not about the pair.
+    max_drawdown_pct: float = 0.10
 
 
 _BUFFER_ORDER = {"breached": 0, "low": 1, "adequate": 2, "comfortable": 3}
@@ -131,7 +135,8 @@ def board(rows: pd.DataFrame, pair_sig: pd.DataFrame,
           margin_schedule: dict | None = None,
           bt_cfg: "bt_mod.BacktestConfig | None" = None,
           open_book: list | None = None,
-          asof=None) -> pd.DataFrame:
+          asof=None,
+          account_drawdown_inr: float | None = None) -> pd.DataFrame:
     """
     One row per pair, for a single session: margin, utilisation, buffer, verdict.
 
@@ -244,7 +249,14 @@ def board(rows: pd.DataFrame, pair_sig: pd.DataFrame,
         runway = int(min(s2e_a, s2e_b))
 
         # ---- verdict, first binding reason wins ----
-        if free_with < 0:
+        dd_limit = cfg.max_drawdown_pct * cfg.account_capital
+        if account_drawdown_inr is not None and account_drawdown_inr >= dd_limit:
+            action, reason = ("do not add exposure",
+                              "account drawdown {:.1f}% of capital, limit {:.0f}%: "
+                              "new exposure halted until reviewed".format(
+                                  100 * account_drawdown_inr / cfg.account_capital,
+                                  100 * cfg.max_drawdown_pct))
+        elif free_with < 0:
             action, reason = "do not add exposure", "requirement exceeds capital"
         elif state == "low":
             action, reason = "do not add exposure", "maintenance buffer low"

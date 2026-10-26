@@ -46,10 +46,24 @@ export interface Pair {
 }
 export interface HistoryRow { date: string; spread_bp: number | null; centre: number | null; scale: number | null; z: number | null; signal_ok: boolean }
 export interface PairDetail extends Pair { history: HistoryRow[]; z_entry: number }
+export interface Account {
+  capital?: number; value_now?: number; peak_value?: number; peak_date?: string | null;
+  drawdown_inr?: number; drawdown_pct?: number; limit_pct?: number; halted?: boolean; max_drawdown_inr?: number;
+}
 export interface Overview {
   meta: Meta; summary: Record<Status, number> & { pairs: number }; contracts: Contract[];
   verdict: { headline: string; edge_survives_costs: boolean | null };
   gold_level: { date: string; inr_per_10g_fine: number }[];
+  account: Account;
+}
+export interface AnomalyRow {
+  date: string; symbol: string; contract_id: string; score: number; top_feature: string; top_z: number;
+  log_ret: number | null; peer_dev_bp: number | null; ret_in_ticks: number | null; d_log_volume: number | null;
+}
+export interface Anomalies {
+  available: boolean; reason?: string; rows_scored?: number; flagged?: number; flagged_new?: number; flagged_known?: number;
+  by_symbol?: { symbol: string; rows: number; flagged: number; flag_rate: number; flagged_already_known: number; flagged_new: number }[];
+  by_feature?: { top_feature: string; n: number }[]; top?: AnomalyRow[];
 }
 export interface Decision { date: string; pair: string; z: number; spread_bp: number; dislocation_bp: number; status: string; reason: string }
 export interface Decisions { total: number; counts: Record<string, number>; items: Decision[] }
@@ -91,5 +105,6 @@ export const useBacktest = q<Backtest>("/api/backtest");
 export const useDataQuality = q<DataQuality>("/api/data-quality");
 export const useSettings = q<Settings>("/api/settings");
 export const useRisk = q<RiskRow[]>("/api/risk");
+export const useAnomalies = q<Anomalies>("/api/anomalies");
 export const useDecisions = () => useQuery({ queryKey: ["decisions"], queryFn: () => get<Decisions>("/api/decisions?limit=300") });
 export const usePair = (id: string) => useQuery({ queryKey: ["pair", id], queryFn: () => get<PairDetail>("/api/pairs/" + encodeURIComponent(id)) });

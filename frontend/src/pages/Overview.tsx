@@ -5,6 +5,7 @@ import { compact, fdate, fexp, fmon, int, ms } from "../format";
 import { usePalette } from "../theme";
 import { Box, SoftTooltip, axis } from "../components/charts";
 import { Card, Chip, Kpi, Loaded } from "../components/ui";
+import AccountRisk from "../components/AccountRisk";
 
 export default function Overview() {
   const ov = useOverview();
@@ -27,6 +28,8 @@ export default function Overview() {
           <Kpi label="No trade today" value={s.NO_TRADE} tone="warn" sub="unusual, logged with the gate that refused" />
           <Kpi label="Quiet pairs" value={s.QUIET} sub={s.WARMUP ? `+${s.WARMUP} warming up` : "nothing unusual"} />
         </div>
+
+        {o.account && <AccountRisk a={o.account} />}
 
         <div className="grid2 wide">
           <Card title="Contracts today" note="front month, converted to ₹ per gram of pure gold">
