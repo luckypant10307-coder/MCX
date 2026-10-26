@@ -32,6 +32,9 @@ class PipelineConfig:
     account_capital: float = 1_000_000.0
     margin_limit: float | None = None
     span_params_file: str | None = None
+    # Folder of validated MCXCCL risk files (risk_inbox). Their scan ranges replace
+    # the estimated ones for exactly the dates they cover, and nowhere else.
+    risk_dir: str | None = None
 
 
 @dataclass
@@ -114,6 +117,20 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
           if cfg.span_params_file else
           margin.SpanParameters(price_scan_range_pct=margin.derive_scan_range(rows)))
     msched = margin.volatility_schedule(rows)
+    span_source = str(sp.source)
+    if cfg.risk_dir:
+        from mcxrv import risk_inbox, spanfile
+        files = risk_inbox.accepted_files(cfg.risk_dir)
+        published = spanfile.schedule_from_files(files)
+        if published:
+            # Same (date, symbol) keys: published values win on their own dates, the
+            # volatility estimate fills every other session. Only scan ranges are
+            # taken this way; folding a file's credits or ELM into the base would
+            # apply the NEWEST file to every past session, which is look-ahead.
+            msched = {**msched, **published}
+            n_days = len({d for d, _s in published})
+            span_source = ("published MCX scan ranges on {} session(s), "
+                           "estimated from volatility on the rest".format(n_days))
     bcfg = backtest.BacktestConfig(exit_z=scfg.z_exit, span_params=sp,
                                    margin_schedule=msched,
                                    margin_limit=cfg.margin_limit,
@@ -143,7 +160,7 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
         account = {}
 
     return PipelineResult(cfg, report, quotes, rows, daily, prem, pairs, trades,
-                          bt_daily, perf, board, span_source=str(sp.source),
+                          bt_daily, perf, board, span_source=span_source,
                           notes={"z_entry": cfg.z_entry, "z_exit": scfg.z_exit,
                                  "account": account})
 
