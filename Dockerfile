@@ -1,5 +1,14 @@
-# One image that serves the dashboard and API with REAL MCX data baked in.
-#
+# One image that serves the React dashboard and the API, with REAL MCX data baked in.
+
+# ---- stage 1: build the React app (frontend/) into static files ---------------------
+FROM node:22-alpine AS web
+WORKDIR /web
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+# ---- stage 2: Python API + data ------------------------------------------------------
 # The data is downloaded and the snapshot built at BUILD time, not at start-up:
 # free hosts (Render) wipe the disk and restart the container whenever it idles, and
 # re-downloading 1,200+ sessions on every cold start would take minutes. Baked in,
@@ -13,6 +22,7 @@ COPY requirements.txt requirements-api.txt ./
 RUN pip install --no-cache-dir -r requirements-api.txt
 
 COPY . .
+COPY --from=web /web/dist ./frontend/dist
 
 # Cache-buster for the data layer. Build hosts cache every layer, so without this an
 # unchanged Dockerfile would keep serving the first day's data forever. ADD of a URL

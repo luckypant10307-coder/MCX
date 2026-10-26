@@ -16,3 +16,6 @@ tests
 .kilo
 .alpme
 .claude
+frontend/node_modules
+frontend/dist
+web
