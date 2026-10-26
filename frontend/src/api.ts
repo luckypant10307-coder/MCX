@@ -106,5 +106,15 @@ export const useDataQuality = q<DataQuality>("/api/data-quality");
 export const useSettings = q<Settings>("/api/settings");
 export const useRisk = q<RiskRow[]>("/api/risk");
 export const useAnomalies = q<Anomalies>("/api/anomalies");
+
+export interface RiskFileDecision { at: string; file: string; status: "ACCEPTED" | "REJECTED"; business_date?: string; kind?: string; reason?: string; commodities?: string[] }
+export interface RiskFiles {
+  accepted: number; rejected: number; waiting: number; recent: RiskFileDecision[]; dates: string[];
+  coverage?: { sessions: number; covered: number; coverage: number; first_file: string; last_file: string; gaps: number };
+}
+export interface Circular { title: string | null; url: string; site?: string | null; snippet?: string | null; date?: string | null; topics: string[]; new: boolean }
+export interface Circulars { available: boolean; reason?: string; checked_at?: string; items?: Circular[]; new?: number; errors?: string[] }
+export const useRiskFiles = q<RiskFiles>("/api/risk-files");
+export const useCirculars = q<Circulars>("/api/circulars");
 export const useDecisions = () => useQuery({ queryKey: ["decisions"], queryFn: () => get<Decisions>("/api/decisions?limit=300") });
 export const usePair = (id: string) => useQuery({ queryKey: ["pair", id], queryFn: () => get<PairDetail>("/api/pairs/" + encodeURIComponent(id)) });

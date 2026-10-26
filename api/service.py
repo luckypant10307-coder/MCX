@@ -9,6 +9,7 @@ module directly.
 from __future__ import annotations
 
 import os
+import time
 
 from mcxrv import snapshot as snap_mod
 
@@ -62,6 +63,35 @@ def overview(store: SnapshotStore) -> dict:
         "gold_level": s["gold_level"],
         "account": s.get("account") or {},
     }
+
+
+_CIRC_CACHE: dict = {}
+CIRC_TTL_S = 6 * 3600
+
+
+def circulars(store: SnapshotStore) -> dict:
+    """
+    Circulars from the snapshot when the nightly job had a TinyFish key. Otherwise, if
+    the SERVER has TINYFISH_API_KEY (e.g. a Render environment variable, never baked
+    into the image), search on demand and cache for six hours.
+    """
+    snap = store.get().get("circulars") or {}
+    if snap.get("available"):
+        return snap
+    if not os.environ.get("TINYFISH_API_KEY"):
+        return snap or {"available": False, "reason": "TINYFISH_API_KEY is not set"}
+    now = time.time()
+    if _CIRC_CACHE.get("at", 0) + CIRC_TTL_S > now:
+        return _CIRC_CACHE["data"]
+    from mcxrv import circulars as circ_mod
+    data = circ_mod.check()
+    _CIRC_CACHE.update(at=now, data=data)
+    return data
+
+
+def risk_files(store: SnapshotStore) -> dict:
+    return store.get().get("risk_files") or {"accepted": 0, "rejected": 0, "waiting": 0,
+                                             "recent": [], "dates": []}
 
 
 def anomalies(store: SnapshotStore) -> dict:

@@ -77,6 +77,18 @@ def backtest():
     return _wrap(service.backtest)
 
 
+@app.get("/api/circulars")
+def circulars():
+    """MCX margin / specification circulars found by TinyFish search; new ones marked."""
+    return _wrap(service.circulars)
+
+
+@app.get("/api/risk-files")
+def risk_files():
+    """The MCXCCL drop folder: files accepted, rejected (with reasons) and coverage."""
+    return _wrap(service.risk_files)
+
+
 @app.get("/api/anomalies")
 def anomalies():
     """Isolation Forest review queue: flagged rows for a human. Never gates data."""
