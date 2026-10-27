@@ -20,7 +20,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mcxrv import margin, specs
+from mcxrv.stage3_gates_decision import margin_capital as margin
+from mcxrv.stage1_intake import specs
 
 
 def _long_goldm(lots=1, price=35485.0, s2e=20):
