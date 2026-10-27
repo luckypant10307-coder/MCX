@@ -176,3 +176,50 @@ def test_notify_pushes_each_event_to_ntfy_too():
                         token="t", chat_id="c", session=fs)
     assert len(out) == 1 and len(fs.calls) == 1 and len(ns.calls) == 1
     assert out[0]["telegram"]["sent"] and out[0]["ntfy"]["sent"]
+
+
+# ------------------------------------------------------------------ evening digest
+
+def _refused(snap, pair, z=2.4, reason="half-life too long"):
+    for p in snap["pairs"]:
+        if p["pair"] == pair:
+            p.update(status="NO_TRADE", z=z, reason=reason)
+    return snap
+
+
+def test_quiet_session_sends_no_digest():
+    assert notify.digest(None, _snap({"GOLDM/GOLDTEN": "QUIET"})) is None
+
+
+def test_digest_lists_refused_pairs_with_their_reason():
+    s = _refused(_snap({"GOLDM/GOLDTEN": "QUIET", "GOLDTEN/GOLDPETAL": "QUIET"}), "GOLDM/GOLDTEN")
+    text = notify.digest(None, s)
+    assert "Unusual, not traded (1)" in text
+    assert "GOLDM/GOLDTEN z +2.40: half-life too long" in text
+    assert "GOLDTEN/GOLDPETAL" not in text
+
+
+def test_digest_includes_only_todays_data_anomalies_and_the_kill_switch():
+    s = _snap({"GOLDM/GOLDTEN": "QUIET"})
+    s["anomalies"] = {"latest": [
+        {"date": "2026-09-18", "contract_id": "GOLDM|2026-11-05", "top_feature": "ret_in_ticks"},
+        {"date": "2026-09-17", "contract_id": "GOLDTEN|2026-10-30", "top_feature": "d_log_oi"}]}
+    s["account"] = {"halted": True, "drawdown_pct": 0.122}
+    text = notify.digest(None, s)
+    assert "Data to review (1)" in text and "GOLDM 2026-11-05 price jump" in text
+    assert "GOLDTEN" not in text
+    assert "Kill switch ON: account 12.2% below its peak" in text
+
+
+def test_digest_is_not_repeated_for_the_same_session():
+    s = _refused(_snap({"GOLDM/GOLDTEN": "QUIET"}), "GOLDM/GOLDTEN")
+    assert notify.digest(None, s) is not None
+    assert notify.digest(copy.deepcopy(s), s) is None
+    nxt = _refused(_snap({"GOLDM/GOLDTEN": "QUIET"}, asof="2026-09-19", fp="bbb"), "GOLDM/GOLDTEN")
+    assert notify.digest(s, nxt) is not None
+
+
+def test_digest_is_delivered_quietly():
+    ns = _NtfySession()
+    notify.deliver("summary", kind="digest", ntfy_kw={"topic": "t", "session": ns})
+    assert ns.calls[0][2]["Priority"] == "low"
