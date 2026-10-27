@@ -783,11 +783,19 @@ own and pointed at a separate API with `?api=https://your-api.example.com` or
 `VITE_API_BASE` (set `CORS_ORIGINS` on the API). A "SAMPLE DATA" badge shows whenever
 the snapshot came from the synthetic source.
 
-**Telegram.** Create a bot with @BotFather, then set `TELEGRAM_BOT_TOKEN` and
-`TELEGRAM_CHAT_ID` in the environment (or as GitHub secrets). Messages go out only
-for a new ALERT, a cleared ALERT, a run with no data, or the same session's data
-changing between runs. Without credentials the job prints what it would have sent;
-delivery failures never fail the run.
+**Notifications: Telegram and ntfy.** Messages go out only for a new ALERT, a cleared
+ALERT, a run with no data, the same session's data changing between runs, or newly
+seen MCX circulars, and are sent to every channel that is configured:
+
+- *ntfy push* (no account): install the ntfy app, subscribe to a long random topic
+  name, and set `NTFY_TOPIC` (optionally `NTFY_SERVER` for a self-hosted server and
+  `NTFY_TOKEN` for a protected topic). Alerts arrive as high-priority pushes. Anyone
+  who knows the topic name can read it, so treat it like a password.
+- *Telegram*: create a bot with @BotFather, then set `TELEGRAM_BOT_TOKEN` and
+  `TELEGRAM_CHAT_ID`.
+
+Set them in `.env` locally or as GitHub secrets for the scheduled job. Without any
+channel the job prints what it would have sent; delivery failures never fail the run.
 
 **Automation.** `.github/workflows/nightly.yml` runs the job at 00:15 IST on weekdays,
 keeps the previous snapshot in the Actions cache for the diff, and uploads the
