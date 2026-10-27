@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useSettings, type Parameter, type Settings as S } from "../api";
 import { fin, inr, ms, pct } from "../format";
 import { Card, Loaded } from "../components/ui";
+import NotifySettings from "../components/NotifySettings";
 
 const fmt = (p: Parameter) => (p.unit === "₹" ? inr(p.value) : `${p.value}${p.unit ? " " + p.unit : ""}`);
 
@@ -44,7 +45,8 @@ export default function Settings() {
   return (
     <Loaded q={q}>{(s) => {
       const groups = [...new Set(s.parameters.map((p) => p.group))];
-      return (
+      return (<>
+        <NotifySettings />
         <div className="grid2">
           <Card title="Engine parameters" note="used by this run · read-only">
             {groups.map((g) => (
@@ -58,7 +60,7 @@ export default function Settings() {
           </Card>
           <WhatIf s={s} />
         </div>
-      );
+      </>);
     }}</Loaded>
   );
 }
