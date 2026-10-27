@@ -23,8 +23,11 @@ import pytest
 pytest.importorskip("psycopg")
 import psycopg
 
-from mcxrv import carry, ingest, liquidity, normalize
-from mcxrv import signal as sig_mod
+from mcxrv.stage2_normalize_signal import half_life as carry
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage2_normalize_signal import pair_match as liquidity
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage2_normalize_signal import z_score as sig_mod
 from mcxrv.db import DbConfig, repo
 from mcxrv.sources.synthetic import SyntheticConfig, SyntheticSource
 
@@ -289,7 +292,8 @@ def test_anomaly_queue_persists_and_stays_advisory(loaded):
     rule caught -- the ones actually worth a human's attention.
     """
     pytest.importorskip("sklearn")
-    from mcxrv import anomaly, liquidity
+    from mcxrv.stage1_intake import anomaly
+    from mcxrv.stage2_normalize_signal import pair_match as liquidity
 
     cfg = loaded["cfg"]
     with repo.connect(cfg) as c:

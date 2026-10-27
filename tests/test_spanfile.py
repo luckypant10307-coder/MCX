@@ -22,8 +22,9 @@ from datetime import date
 
 import pytest
 
-from mcxrv import margin, spanfile
-from mcxrv.spanfile import SpanFileError
+from mcxrv.stage3_gates_decision import margin_capital as margin
+from mcxrv.stage3_gates_decision import spanfile
+from mcxrv.stage3_gates_decision.spanfile import SpanFileError
 
 # --------------------------------------------------------------------- fixtures
 

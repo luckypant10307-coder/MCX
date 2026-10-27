@@ -121,6 +121,7 @@ PUSH_STYLE = {
     "no_data": ("Gold monitor: no usable data", "high", "warning"),
     "data_changed_same_session": ("Gold monitor: data changed", "default", "warning"),
     "circulars": ("MCX circular watch", "default", "page_facing_up"),
+    "margin_changed": ("MCX margin rate changed", "default", "moneybag"),
     # Unusual but not actionable: delivered silently so it never competes with an alert.
     "digest": ("Gold monitor: evening summary", "low", "memo"),
 }

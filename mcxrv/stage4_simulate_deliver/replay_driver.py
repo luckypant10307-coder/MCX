@@ -504,7 +504,10 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
                         margin_mod.MarginPosition(
                             rec.sym_b, cid_b, -int(rec.direction) * lots_b,
                             float(rb.close), int(rb.sessions_to_expiry)),
-                    ], span_params) if cfg.track_margin else 0.0,
+                    # The session's own parameters, as the book margin below uses:
+                    # the base set would price every entry at one fixed scan range.
+                    ], margin_mod.params_for_session(span_params, t, cfg.margin_schedule))
+                    if cfg.track_margin else 0.0,
                     trade_id=next_trade_id,
                 ))
                 held_pairs.add(rec.pair)

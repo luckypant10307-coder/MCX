@@ -132,6 +132,12 @@ def circulars():
     return _wrap(service.circulars)
 
 
+@app.get("/api/margins")
+def margins():
+    """Published MCX outright margin rates (broker sheets), newest first, and revisions."""
+    return _wrap(service.published_margins)
+
+
 @app.get("/api/risk-files")
 def risk_files():
     """The MCXCCL drop folder: files accepted, rejected (with reasons) and coverage."""

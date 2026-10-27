@@ -13,8 +13,16 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from mcxrv import backtest, carry, costs, ingest, liquidity, margin, normalize, risk, snapshot
-from mcxrv import signal as sig_mod
+from mcxrv import snapshot
+from mcxrv.stage4_simulate_deliver import replay_driver as backtest
+from mcxrv.stage2_normalize_signal import half_life as carry
+from mcxrv.stage3_gates_decision import liquidity_cost as costs
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage2_normalize_signal import pair_match as liquidity
+from mcxrv.stage3_gates_decision import margin_capital as margin
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage3_gates_decision import risk
+from mcxrv.stage2_normalize_signal import z_score as sig_mod
 from mcxrv.pipeline import account_state
 from mcxrv.sources.synthetic import SyntheticConfig, SyntheticSource
 
