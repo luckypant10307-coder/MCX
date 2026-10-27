@@ -15,7 +15,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mcxrv import anomaly, carry, ingest, liquidity, normalize
+from mcxrv.stage1_intake import anomaly
+from mcxrv.stage2_normalize_signal import half_life as carry
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage2_normalize_signal import pair_match as liquidity
+from mcxrv.stage2_normalize_signal import normalize
 from mcxrv.sources.synthetic import SyntheticConfig, SyntheticSource
 
 sk = pytest.importorskip("sklearn")
@@ -309,8 +313,10 @@ def test_anomaly_flags_never_reach_the_model():
     import pathlib
     import re
 
-    from mcxrv import attribution, backtest, eventstudy
-    from mcxrv import signal as sig_mod
+    from mcxrv.stage4_simulate_deliver import evaluation as attribution
+    from mcxrv.stage4_simulate_deliver import replay_driver as backtest
+    from mcxrv.stage4_simulate_deliver import eventstudy
+    from mcxrv.stage2_normalize_signal import z_score as sig_mod
     # Modules are located by __file__, not by a hardcoded path, so this keeps
     # working wherever the package layout puts them.
     pattern = re.compile(r"import\s+anomaly\b|from\s+\S*anomaly\s+import")

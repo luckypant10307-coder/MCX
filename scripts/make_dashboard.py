@@ -31,9 +31,19 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mcxrv import (anomaly, attribution, backtest, carry, costs, eventstudy,
-                   ingest, liquidity, margin, normalize, risk, specs)
-from mcxrv import signal as sig_mod
+from mcxrv.stage1_intake import anomaly
+from mcxrv.stage4_simulate_deliver import evaluation as attribution
+from mcxrv.stage4_simulate_deliver import replay_driver as backtest
+from mcxrv.stage2_normalize_signal import half_life as carry
+from mcxrv.stage3_gates_decision import liquidity_cost as costs
+from mcxrv.stage4_simulate_deliver import eventstudy
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage2_normalize_signal import pair_match as liquidity
+from mcxrv.stage3_gates_decision import margin_capital as margin
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage3_gates_decision import risk
+from mcxrv.stage1_intake import specs
+from mcxrv.stage2_normalize_signal import z_score as sig_mod
 
 # ---------------------------------------------------------------------------
 # palette: validated categorical slots 1-3 (all-pairs safe), reserved status hues
@@ -947,7 +957,7 @@ def render(ctx, args) -> str:
                      .format(esc(k), esc(v), esc(nn)))
         P.append("</div>")
         try:
-            from mcxrv import margin as margin_mod
+            from mcxrv.stage3_gates_decision import margin_capital as margin_mod
             ex = [margin_mod.MarginPosition("GOLDM", "x", 1, 35485.0, 20),
                   margin_mod.MarginPosition("GOLDPETAL", "y", -99, 3596.5, 20)]
             sw = margin_mod.sweep_credit(ex, sp)
@@ -1142,7 +1152,7 @@ def render(ctx, args) -> str:
     # ---- anomaly review queue
     det = ctx.get("anomaly")
     if det is not None and not det.empty:
-        from mcxrv import anomaly as anom
+        from mcxrv.stage1_intake import anomaly as anom
         new_hits = det[det["is_anomaly"] & ~det["rule_flagged"]]
         P.append('<section><div class="eyebrow">Review queue</div>'
                  "<h2>What the rules did not anticipate</h2>"
