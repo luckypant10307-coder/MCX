@@ -112,3 +112,67 @@ def test_notify_sends_one_message_per_event():
     out = notify.notify(None, _snap({"GOLDM/GOLDTEN": "ALERT", "GOLDTEN/GOLDPETAL": "ALERT"}),
                         token="t", chat_id="c", session=fs)
     assert len(out) == len(fs.calls) == 2 and all(o["sent"] for o in out)
+
+
+# ------------------------------------------------------------------ ntfy push
+
+class _NtfySession:
+    def __init__(self, status=200, exc=None):
+        self.status, self.exc, self.calls = status, exc, []
+
+    def post(self, url, data=None, headers=None, timeout=None):
+        self.calls.append((url, data, headers))
+        if self.exc:
+            raise self.exc
+
+        class R:
+            status_code = self.status
+        return R()
+
+
+def test_ntfy_without_a_topic_is_a_no_op(monkeypatch):
+    monkeypatch.delenv("NTFY_TOPIC", raising=False)
+    r = notify.send_ntfy("hello")
+    assert r["sent"] is False and "NTFY_TOPIC" in r["reason"]
+
+
+def test_ntfy_posts_text_with_title_priority_and_tags():
+    s = _NtfySession()
+    r = notify.send_ntfy("GOLDM/GOLDTEN alert", title="Gold spread ALERT", priority="high",
+                         tags="rotating_light", topic="mcx-abc123", session=s)
+    assert r == {"sent": True, "status": 200}
+    url, data, headers = s.calls[0]
+    assert url == "https://ntfy.sh/mcx-abc123"
+    assert data == "GOLDM/GOLDTEN alert".encode("utf-8")
+    assert headers == {"Title": "Gold spread ALERT", "Priority": "high", "Tags": "rotating_light"}
+
+
+def test_ntfy_self_hosted_server_and_token():
+    s = _NtfySession()
+    notify.send_ntfy("x", topic="t", server="https://push.example.com/", token="tk", session=s)
+    url, _d, headers = s.calls[0]
+    assert url == "https://push.example.com/t" and headers["Authorization"] == "Bearer tk"
+
+
+def test_ntfy_never_raises():
+    assert notify.send_ntfy("x", topic="t", session=_NtfySession(status=429)) == {"sent": False, "status": 429}
+    r = notify.send_ntfy("x", topic="t", session=_NtfySession(exc=ConnectionError("down")))
+    assert r["sent"] is False and "ConnectionError" in r["reason"]
+
+
+def test_deliver_reaches_every_configured_channel_and_styles_alerts(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    ns = _NtfySession()
+    r = notify.deliver("alert text", kind="new_alert", ntfy_kw={"topic": "t", "session": ns})
+    # Telegram is not configured here, ntfy is: one working channel is enough.
+    assert r["sent"] is True and r["telegram"]["sent"] is False and r["ntfy"]["sent"] is True
+    assert ns.calls[0][2]["Priority"] == "high"
+
+
+def test_notify_pushes_each_event_to_ntfy_too():
+    fs, ns = _FakeSession(), _NtfySession()
+    out = notify.notify(None, _snap({"GOLDM/GOLDTEN": "ALERT"}), ntfy_kw={"topic": "t", "session": ns},
+                        token="t", chat_id="c", session=fs)
+    assert len(out) == 1 and len(fs.calls) == 1 and len(ns.calls) == 1
+    assert out[0]["telegram"]["sent"] and out[0]["ntfy"]["sent"]

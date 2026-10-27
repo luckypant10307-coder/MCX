@@ -112,11 +112,71 @@ def send(text: str, token: str | None = None, chat_id: str | None = None,
         return {"sent": False, "reason": "{}: {}".format(type(exc).__name__, exc)}
 
 
-def notify(prev: dict | None, new: dict, **send_kw) -> list[dict]:
-    """Diff, format and send. Returns what was (or would have been) sent."""
+NTFY_DEFAULT_SERVER = "https://ntfy.sh"
+
+# How each event shows up as a phone push: title, priority (1-5) and ntfy emoji tags.
+PUSH_STYLE = {
+    "new_alert": ("Gold spread ALERT", "high", "rotating_light"),
+    "alert_cleared": ("Gold spread alert cleared", "default", "white_check_mark"),
+    "no_data": ("Gold monitor: no usable data", "high", "warning"),
+    "data_changed_same_session": ("Gold monitor: data changed", "default", "warning"),
+    "circulars": ("MCX circular watch", "default", "page_facing_up"),
+}
+
+
+def send_ntfy(text: str, title: str | None = None, priority: str | None = None,
+              tags: str | None = None, topic: str | None = None, server: str | None = None,
+              token: str | None = None, session=None, timeout: float = 10.0) -> dict:
+    """
+    Push one message through ntfy (https://ntfy.sh, or a self-hosted server).
+
+    NTFY_TOPIC is the channel: anyone who knows the name can read it, so pick a long
+    random one and treat it like a password. NTFY_TOKEN is only for protected topics or
+    a private server. Returns a status dict; never raises.
+    """
+    topic = topic or os.environ.get("NTFY_TOPIC")
+    server = (server or os.environ.get("NTFY_SERVER") or NTFY_DEFAULT_SERVER).rstrip("/")
+    token = token or os.environ.get("NTFY_TOKEN")
+    if not topic:
+        return {"sent": False, "reason": "NTFY_TOPIC not set"}
+    headers = {}
+    if title:
+        headers["Title"] = title
+    if priority:
+        headers["Priority"] = priority
+    if tags:
+        headers["Tags"] = tags
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    if session is None:
+        import requests
+        session = requests
+    try:
+        r = session.post("{}/{}".format(server, topic), data=text.encode("utf-8"),
+                         headers=headers, timeout=timeout)
+        ok = getattr(r, "status_code", 0) == 200
+        return {"sent": ok, "status": getattr(r, "status_code", None)}
+    except Exception as exc:     # delivery must never break the nightly run
+        return {"sent": False, "reason": "{}: {}".format(type(exc).__name__, exc)}
+
+
+def deliver(text: str, kind: str | None = None, ntfy_kw: dict | None = None, **send_kw) -> dict:
+    """
+    Send one message to every configured channel (Telegram, ntfy). The top-level
+    "sent" is True when at least one channel accepted it; each channel's own result
+    is kept under its name. Telegram's fields stay at the top level as before.
+    """
+    title, priority, tags = PUSH_STYLE.get(kind or "", (None, None, None))
+    tg = send(text, **send_kw)
+    nt = send_ntfy(text, title=title, priority=priority, tags=tags, **(ntfy_kw or {}))
+    return {**tg, "sent": bool(tg.get("sent") or nt.get("sent")), "telegram": tg, "ntfy": nt}
+
+
+def notify(prev: dict | None, new: dict, ntfy_kw: dict | None = None, **send_kw) -> list[dict]:
+    """Diff, format and send to every configured channel. Returns what was sent."""
     out = []
     for ev in changes(prev, new):
         text = format_message(ev, new.get("meta", {}))
         out.append({"event": ev["kind"], "pair": ev.get("pair"), "text": text,
-                    **send(text, **send_kw)})
+                    **deliver(text, kind=ev["kind"], ntfy_kw=ntfy_kw, **send_kw)})
     return out
