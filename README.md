@@ -78,6 +78,13 @@ rarely changes the result.
 * **Risk checks**: account drawdown kill switch, and an anomaly review queue for
   suspicious price rows.
 
+* **Timestamped record**: each session's statuses and decisions are saved as a small
+  JSON file and timestamped in Bitcoin through
+  [OpenTimestamps](https://opentimestamps.org), on the `attestations` branch. Anyone
+  can check that an alert existed on its date and was not edited afterwards:
+  `python scripts/attest.py --verify attestations/<file>.json`. It proves timing,
+  not that the signal was right.
+
 **It never places orders.** It reads public data and sends notifications; nothing is
 connected to a broker or bank account.
 
