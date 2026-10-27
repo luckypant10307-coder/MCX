@@ -108,17 +108,19 @@ def main(argv=None) -> int:
     print("snapshot -> {}".format(a.out))
 
     if not a.no_notify:
+        def report(event, r):
+            for ch in ("telegram", "ntfy"):
+                res = r.get(ch, {})
+                print("{} [{}] {}".format(ch, event, "sent" if res.get("sent")
+                                          else res.get("reason", "not sent (status {})".format(res.get("status")))))
         text = circulars.message(circ)
         if text:
-            r = notify.send(text)
-            print("telegram [circulars] {}".format("sent" if r.get("sent") else r.get("reason", "not sent")))
+            report("circulars", notify.deliver(text, kind="circulars"))
         sent = notify.notify(prev, snap)
         if not sent:
-            print("telegram: nothing changed, no message")
+            print("notify: nothing changed, no message")
         for m in sent:
-            print("telegram [{}] {}: {}".format(
-                m["event"], "sent" if m.get("sent") else "not sent",
-                m.get("reason", m.get("status"))))
+            report(m["event"], m)
     return 0
 
 
