@@ -28,8 +28,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mcxrv import calendar as cal
-from mcxrv import normalize, specs
+from mcxrv.stage1_intake import calendar as cal
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage1_intake import specs
 
 
 @pytest.fixture
