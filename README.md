@@ -783,6 +783,28 @@ own and pointed at a separate API with `?api=https://your-api.example.com` or
 `VITE_API_BASE` (set `CORS_ORIGINS` on the API). A "SAMPLE DATA" badge shows whenever
 the snapshot came from the synthetic source.
 
+**Accounts (Supabase).** With `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` set, the
+dashboard requires sign-in (Google, or email + password) and every `/api/` route except
+`/api/health` and `/api/config` needs a valid session. Without them the dashboard stays
+open, as before. One-time setup:
+
+1. Run `supabase/migrations/*.sql` in the Supabase SQL Editor: profiles, notification
+   settings, push devices, the notification list and an invite-only sign-up rule, all
+   with row-level security.
+2. Invite yourself: `python scripts/invite.py you@example.com` (the first account
+   becomes admin; `--list` and `--remove` manage the list).
+3. Supabase > Authentication > URL Configuration: add the site URL (e.g. the Render
+   URL) and `http://localhost:8000` as redirect URLs. For Google, create an OAuth client
+   in Google Cloud and paste its ID and secret under Authentication > Providers > Google.
+4. Generate web-push keys once (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`)
+   and set them, with `SUPABASE_SECRET_KEY`, on the server and the nightly job.
+
+Each user then turns on notifications per device (Settings > "Turn on notifications"),
+chooses trade alerts, evening summary, circulars and which pairs, and sees everything
+in the bell. The site installs as an app ("Add to Home Screen"); on iPhone that is
+required before push works. The nightly job writes each event to every user who asked
+for it and pushes it to their devices, dropping devices the push service reports gone.
+
 **Notifications: Telegram and ntfy.** Messages go out only for a new ALERT, a cleared
 ALERT, a run with no data, the same session's data changing between runs, or newly
 seen MCX circulars, and are sent to every channel that is configured:

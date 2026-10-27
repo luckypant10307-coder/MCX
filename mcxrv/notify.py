@@ -121,7 +121,55 @@ PUSH_STYLE = {
     "no_data": ("Gold monitor: no usable data", "high", "warning"),
     "data_changed_same_session": ("Gold monitor: data changed", "default", "warning"),
     "circulars": ("MCX circular watch", "default", "page_facing_up"),
+    # Unusual but not actionable: delivered silently so it never competes with an alert.
+    "digest": ("Gold monitor: evening summary", "low", "memo"),
 }
+
+# What a data-anomaly feature means, in the words a phone notification can carry.
+_FEATURE_WORDS = {
+    "ret_in_ticks": "price jump", "ret_vs_peers_bp": "moved unlike its peers",
+    "peer_dev_bp": "far from its peers", "log_ret": "large daily move", "range_frac": "wide range",
+    "close_in_range": "odd close", "d_log_volume": "volume swing", "d_log_oi": "open-interest swing",
+    "resid_bp": "large model residual",
+}
+
+
+def digest(prev: dict | None, new: dict, max_lines: int = 8) -> str | None:
+    """
+    One quiet evening summary of what was unusual but NOT an alert: pairs that crossed
+    the entry level and were refused (with the reason), and data anomalies flagged on
+    the newest session. None when there is nothing to say, or when this session was
+    already summarised (a re-run of the same data never repeats it).
+    """
+    meta = new.get("meta", {})
+    old = (prev or {}).get("meta", {})
+    if old and old.get("asof") == meta.get("asof") and \
+            old.get("data_fingerprint") == meta.get("data_fingerprint"):
+        return None
+
+    refused = [p for p in new.get("pairs", []) if p.get("status") == "NO_TRADE"]
+    an = new.get("anomalies") or {}
+    flags = [a for a in (an.get("latest") or []) if str(a.get("date")) == str(meta.get("asof"))]
+    if not refused and not flags:
+        return None
+
+    tag = " (sample data)" if meta.get("sample_data") else ""
+    lines = ["Evening summary{} - {}".format(tag, meta.get("asof"))]
+    if refused:
+        lines.append("Unusual, not traded ({}):".format(len(refused)))
+        for p in refused[:max_lines]:
+            lines.append("- {} z {}: {}".format(p["pair"], _fmt_num(p.get("z"), "{:+.2f}"), p.get("reason")))
+    if flags:
+        lines.append("Data to review ({}):".format(len(flags)))
+        for a in flags[:max_lines]:
+            lines.append("- {} {}".format(str(a.get("contract_id", "")).replace("|", " "),
+                                          _FEATURE_WORDS.get(a.get("top_feature"), a.get("top_feature"))))
+    acct = new.get("account") or {}
+    if acct.get("halted"):
+        lines.append("Kill switch ON: account {:.1f}% below its peak; no new trades.".format(
+            100 * (acct.get("drawdown_pct") or 0)))
+    lines.append("run {}".format(meta.get("run_id", "")))
+    return "\n".join(lines)
 
 
 def send_ntfy(text: str, title: str | None = None, priority: str | None = None,

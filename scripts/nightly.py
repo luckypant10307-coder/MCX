@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mcxrv import circulars, notify, pipeline, risk_inbox, snapshot  # noqa: E402
+from mcxrv import circulars, notify, pipeline, risk_inbox, snapshot, user_notify  # noqa: E402
 from mcxrv.stage1_intake.config import load_dotenv  # noqa: E402
 
 
@@ -121,6 +121,20 @@ def main(argv=None) -> int:
             print("notify: nothing changed, no message")
         for m in sent:
             report(m["event"], m)
+        summary = notify.digest(prev, snap)
+        if summary:
+            report("digest", notify.deliver(summary, kind="digest"))
+        else:
+            print("notify: nothing unusual to summarise for this session")
+        # Registered users: each gets what their settings ask for, on their own devices
+        # and in the site's notification centre. Skipped when Supabase is not set up.
+        if user_notify.supa.configured():
+            res = user_notify.fanout(user_notify.events_from_run(sent, summary, text),
+                                     run_id=snap["meta"]["run_id"])
+            print("users: {users} | notifications {notifications} | pushed {pushed} | "
+                  "failed {push_failed} | devices removed {devices_removed}".format(**res))
+            for e in res["errors"]:
+                print("users: " + e)
     return 0
 
 

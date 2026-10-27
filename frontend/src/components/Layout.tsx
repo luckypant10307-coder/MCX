@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useHealth, useOverview } from "../api";
 import { fdate, fday, ist } from "../format";
+import Bell from "./Bell";
 
 const I = {
   overview: <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />,
@@ -79,6 +80,7 @@ export default function Layout() {
           <div className="right">
             {h && <span>Last run {ist(h.generated_at)} IST · run <span className="mono">{h.run_id}</span></span>}
             {h && <span className="datechip">{fday(h.asof)}</span>}
+            <Bell />
             <button className={"toggle" + (dark ? " on" : "")} onClick={toggle} aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
               aria-pressed={dark}><i aria-hidden="true">{dark ? "☾" : "☀"}</i></button>
           </div>
