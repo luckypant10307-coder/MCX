@@ -38,6 +38,9 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          TINYFISH_API_KEY: ${{ secrets.TINYFISH_API_KEY }}
           MCX_DB_HOST: ${{ secrets.MCX_DB_HOST }}
           MCX_DB_PORT: ${{ secrets.MCX_DB_PORT }}
           MCX_DB_USER: ${{ secrets.MCX_DB_USER }}
