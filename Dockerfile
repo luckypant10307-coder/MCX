@@ -32,7 +32,7 @@ ADD https://mtf.trading/mcx/index.json /tmp/mtf_index.json
 
 # Download every session (MCX bhavcopy via mtf.trading), then build the snapshot
 # over the full history up to the latest session.
-RUN python scripts/fetch_mtf.py --delay 0.05 \
+RUN python scripts/fetch_mtf.py --delay 0.05 --require-latest \
  && python scripts/nightly.py --source csv --csv-dir data/raw --no-notify \
  && rm -rf data/processed/history
 
