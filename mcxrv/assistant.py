@@ -232,6 +232,9 @@ def _explain(e: Exception) -> str:
     if "SERVICE_DISABLED" in s or "has not been used in project" in s:
         return ("The Gemini API is not enabled for this key's Google Cloud project. "
                 "Enable the Vertex AI (Agent Platform) API in the Google Cloud console.")
+    if "requires billing" in s or "BILLING" in s:
+        return ("Google needs billing turned on for this key's Cloud project before "
+                "Vertex AI will answer. Enable billing, or use a free AI Studio key (AIza...).")
     if "PERMISSION_DENIED" in s or "API_KEY_INVALID" in s or "401" in s:
         return "Google refused the API key. Check GEMINI_API_KEY."
     if "RESOURCE_EXHAUSTED" in s or "429" in s:
