@@ -160,11 +160,31 @@ jobs:
           path: data/processed/snapshot.json
           retention-days: 30
 
+      # The live site can fall behind this job: its image downloads the data itself,
+      # and a mirror mid-update at build time once left it a session behind. Ask the
+      # site which session it shows (/api/health is public) and rebuild when it lags.
+      - name: Is the live site behind?
+        id: live
+        if: env.SOURCE == 'csv'
+        env:
+          LIVE_SITE_URL: ${{ vars.LIVE_SITE_URL || 'https://mcx-iefc.onrender.com' }}
+        run: |
+          # free hosts sleep; allow a cold start
+          live=$(curl -fsS --max-time 150 "$LIVE_SITE_URL/api/health" \
+                 | python -c "import json,sys; print(json.load(sys.stdin).get('asof') or '')" || true)
+          echo "live site shows: ${live:-unknown}, this run: ${{ steps.after.outputs.asof }}"
+          if [ -n "$live" ] && [ "$live" \< "${{ steps.after.outputs.asof }}" ]; then
+            echo "behind=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "behind=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # The Render image downloads the data itself at build time, so a deploy IS the
-      # refresh. Only trigger it when there is something new to show.
+      # refresh. Trigger it when there is something new to show, or the site lags.
       - name: Rebuild the live site
         if: >-
           env.SOURCE == 'csv' && (steps.after.outputs.asof != steps.before.outputs.asof
+          || steps.live.outputs.behind == 'true'
           || github.event.inputs.force_deploy == 'true')
         env:
           DEPLOY_HOOK: ${{ secrets.SNAPSHOT_DEPLOY_HOOK }}
