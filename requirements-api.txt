@@ -7,3 +7,5 @@ pywebpush>=2.0
 # Bitcoin timestamps for the daily signal record (scripts/attest.py). Core library
 # only: the `ots` command-line client is not needed.
 opentimestamps>=0.4.5
+# "Ask" assistant (Gemini); only used when GEMINI_API_KEY is set.
+google-genai>=1.0
