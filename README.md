@@ -78,6 +78,10 @@ rarely changes the result.
 * **Risk checks**: account drawdown kill switch, and an anomaly review queue for
   suspicious price rows.
 
+* **Ask**: a chat page where signed-in users ask questions ("why is this pair
+  NO_TRADE?", "what is the margin now?"). Gemini answers through read-only tools over
+  the same snapshot the dashboard shows; it explains, never decides or advises. Needs
+  `GEMINI_API_KEY`; limited to 40 questions per user per day.
 * **Timestamped record**: each session's statuses and decisions are saved as a small
   JSON file and timestamped in Bitcoin through
   [OpenTimestamps](https://opentimestamps.org), on the `attestations` branch. Anyone
