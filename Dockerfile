@@ -24,14 +24,20 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 COPY . .
 COPY --from=web /web/dist ./frontend/dist
 
-# Cache-buster for the data layer. Build hosts cache every layer, so without this an
-# unchanged Dockerfile would keep serving the first day's data forever. ADD of a URL
-# is checksummed: the layers below re-run exactly when mtf.trading publishes a new
-# session (its index changes), and stay cached when nothing new exists.
+# Two data layers. Build hosts cache every layer, so each needs something that
+# changes when it should re-run.
+#
+# 1. The full history (1,200+ sessions, minutes to download). Re-runs when the
+#    archive's index changes. The index sits behind a CDN that can serve a copy up
+#    to a day old, so this layer may lag; layer 2 catches up.
 ADD https://mtf.trading/mcx/index.json /tmp/mtf_index.json
+RUN python scripts/fetch_mtf.py --delay 0.05
 
-# Download every session (MCX bhavcopy via mtf.trading), then build the snapshot
-# over the full history up to the latest session.
+# 2. What is new since layer 1, and the snapshot. Re-runs on EVERY build: the
+#    Cloudflare trace page is different on each request, so a deploy-hook rebuild
+#    always picks up the latest session and today's margin rate. Only missing
+#    sessions are downloaded, so this takes seconds plus the engine run.
+ADD https://www.cloudflare.com/cdn-cgi/trace /tmp/build_time
 RUN python scripts/fetch_mtf.py --delay 0.05 \
  && python scripts/nightly.py --source csv --csv-dir data/raw --no-notify \
  && rm -rf data/processed/history
