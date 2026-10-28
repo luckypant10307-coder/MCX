@@ -180,3 +180,29 @@ def test_over_the_limit_is_429(client, monkeypatch):
     monkeypatch.setattr(assistant, "answer", lambda q, h, s: {"text": "ok", "tools": [], "model": "m", "asof": None})
     assert client.post("/api/chat", json={"message": "a"}, headers=GOOD).status_code == 200
     assert client.post("/api/chat", json={"message": "b"}, headers=GOOD).status_code == 429
+
+
+def test_overload_and_timeout_read_as_busy(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "AQ.test")
+    for err in ("503 UNAVAILABLE. This model is currently experiencing high demand.",
+                "504 DEADLINE_EXCEEDED. Deadline expired before operation could complete."):
+        with pytest.raises(assistant.ChatUnavailable, match="busy"):
+            assistant.answer("hi", [], SNAP, client=FakeClient(fail=RuntimeError(err)))
+
+
+def test_ai_studio_is_the_default_endpoint(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "AQ.looks-like-vertex-but-is-ai-studio")
+    monkeypatch.delenv("GEMINI_USE_VERTEX", raising=False)
+    assert assistant._client()._api_client.vertexai is False
+    monkeypatch.setenv("GEMINI_USE_VERTEX", "1")
+    assert assistant._client()._api_client.vertexai is True
+
+
+def test_margin_highs_and_lows_are_computed_not_guessed():
+    snap = dict(SNAP, published_margins={"available": True, "history": [
+        {"date": "2026-01-29", "GOLDM": 11.8}, {"date": "2026-02-06", "GOLDM": 27.83, "GOLDGUINEA": 28.9},
+        {"date": "2026-10-27", "GOLDM": 9.25}, {"date": "2025-06-09", "GOLDM": 7.38}]})
+    ex = {f.__name__: f for f in assistant.tools_for(snap)}["get_margins"]()["extremes_by_year"]
+    assert ex["2026"]["GOLDM"] == {"high_pct": 27.83, "high_date": "2026-02-06",
+                                   "low_pct": 9.25, "low_date": "2026-10-27"}
+    assert ex["2025"]["GOLDM"]["high_pct"] == 7.38 and ex["2026"]["GOLDGUINEA"]["high_pct"] == 28.9
