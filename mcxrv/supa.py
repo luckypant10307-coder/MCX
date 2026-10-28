@@ -23,7 +23,8 @@ def public_config() -> dict:
     return {"auth_enabled": bool(os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_PUBLISHABLE_KEY")),
             "supabase_url": os.environ.get("SUPABASE_URL"),
             "supabase_publishable_key": os.environ.get("SUPABASE_PUBLISHABLE_KEY"),
-            "vapid_public_key": os.environ.get("VAPID_PUBLIC_KEY")}
+            "vapid_public_key": os.environ.get("VAPID_PUBLIC_KEY"),
+            "chat_enabled": bool(os.environ.get("GEMINI_API_KEY"))}
 
 
 def _base() -> str:

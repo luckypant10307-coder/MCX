@@ -11,6 +11,7 @@ const I = {
   research: <path d="M4 19h16M7 16V9M12 16V5M17 16v-4" />,
   backtest: <path d="M3 17l5-5 4 3 8-8M15 7h5v5" />,
   data: <path d="M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />,
+  ask: <path d="M4 5h16v11H9l-5 4zM8 9h8M8 12h5" />,
   settings: <path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />,
 };
 const NAV: { to: string; label: string; icon: ReactNode; badge?: boolean }[] = [
@@ -20,11 +21,12 @@ const NAV: { to: string; label: string; icon: ReactNode; badge?: boolean }[] = [
   { to: "/research", label: "Research", icon: I.research },
   { to: "/backtest", label: "Backtest", icon: I.backtest },
   { to: "/data", label: "Data & audit", icon: I.data },
+  { to: "/ask", label: "Ask", icon: I.ask },
   { to: "/settings", label: "Settings", icon: I.settings },
 ];
 const TITLES: Record<string, string> = {
   "/": "Overview", "/pairs": "Pairs", "/decisions": "Decision log", "/research": "Research",
-  "/backtest": "Backtest", "/data": "Data & audit", "/settings": "Settings",
+  "/backtest": "Backtest", "/data": "Data & audit", "/ask": "Ask", "/settings": "Settings",
 };
 
 function useTheme(): [boolean, () => void] {
@@ -69,7 +71,7 @@ export default function Layout() {
         <div className="rail-foot">
           {h ? (<>
             Data: {h.sample_data ? "synthetic sample in MCX bhavcopy format" : "MCX bhavcopy via mtf.trading"}<br />
-            Engine: rule-based, no AI in the decision<br />Build {fdate(h.generated_at)}
+            Engine: rule-based, no AI in the decision<br />Ask: Gemini explains, never decides<br />Build {fdate(h.generated_at)}
           </>) : health.isError ? "API unreachable" : "Connecting…"}
         </div>
       </aside>
