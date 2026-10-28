@@ -37,8 +37,11 @@ RUN python scripts/fetch_mtf.py --delay 0.05
 #    Cloudflare trace page is different on each request, so a deploy-hook rebuild
 #    always picks up the latest session and today's margin rate. Only missing
 #    sessions are downloaded, so this takes seconds plus the engine run.
+#    --require-latest fails the build if the newest session the index lists did
+#    not arrive (the mirror mid-update), so the previous deploy keeps serving and
+#    the nightly job's live-site check rebuilds it later.
 ADD https://www.cloudflare.com/cdn-cgi/trace /tmp/build_time
-RUN python scripts/fetch_mtf.py --delay 0.05 \
+RUN python scripts/fetch_mtf.py --delay 0.05 --require-latest \
  && python scripts/nightly.py --source csv --csv-dir data/raw --no-notify \
  && rm -rf data/processed/history
 
