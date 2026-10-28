@@ -33,7 +33,7 @@ import argparse
 import os
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 
@@ -47,11 +47,37 @@ def _d(s: str) -> date:
     return datetime.strptime(s.replace("-", ""), "%Y%m%d").date()
 
 
+IST = timezone(timedelta(hours=5, minutes=30))
+# How far past the index's last date to look for sessions it does not list yet.
+PROBE_DAYS = 10
+
+
 def available_dates(session: requests.Session) -> tuple[list[date], str]:
-    r = session.get(INDEX, timeout=60)
+    # The index sits behind a CDN that keeps a copy for up to a day, so a plain
+    # request can be told the archive ends a session early. Ask for a fresh copy.
+    r = session.get(INDEX, params={"t": int(time.time())},
+                    headers={"Cache-Control": "no-cache"}, timeout=60)
     r.raise_for_status()
     idx = r.json()
     return [_d(x["date"]) for x in idx.get("dates", [])], idx.get("generated", "?")
+
+
+def unlisted_weekdays(listed: list[date], today: date | None = None) -> list[date]:
+    """
+    Weekdays after the index's last date and before today (IST) that it does not
+    list. The API serves a session before the index is rebuilt to include it, so
+    these are worth one request each; a day with no session answers 404. Today is
+    left out: its bhavcopy does not exist until the evening session has closed.
+    """
+    if not listed:
+        return []
+    today = today or datetime.now(IST).date()
+    out, d = [], max(listed) + timedelta(days=1)
+    while d < today and len(out) < PROBE_DAYS:
+        if d.weekday() < 5:
+            out.append(d)
+        d += timedelta(days=1)
+    return out
 
 
 def fetch_one(session: requests.Session, d: date, retries: int = 3) -> bytes | None:
@@ -88,6 +114,12 @@ def main(argv=None) -> int:
     s.headers.update(HEADERS)
 
     dates, generated = available_dates(s)
+    # The newest day the index LISTS: --require-latest holds the build to it. Days
+    # added by probing past the index may be holidays, which have no session.
+    listed = [d for d in dates if (not args.end or d <= _d(args.end))]
+    newest_listed = max(listed) if listed else None
+    extra = unlisted_weekdays(dates)
+    dates = dates + extra
     if args.start:
         dates = [d for d in dates if d >= _d(args.start)]
     if args.end:
@@ -96,7 +128,8 @@ def main(argv=None) -> int:
         print("no sessions in that range")
         return 0
     print(f"mtf.trading index generated {generated}: {len(dates)} sessions "
-          f"{dates[0]} .. {dates[-1]}")
+          f"{dates[0]} .. {dates[-1]}"
+          + (f" (incl. {len(extra)} day(s) after the index, checked directly)" if extra else ""))
 
     got = skipped = empty = 0
     for i, d in enumerate(dates, 1):
@@ -118,8 +151,8 @@ def main(argv=None) -> int:
         time.sleep(args.delay)
 
     print(f"done: saved {got}, already on disk {skipped}, empty {empty} -> {args.out_dir}")
-    if args.require_latest:
-        newest = dates[-1]
+    if args.require_latest and newest_listed is not None:
+        newest = newest_listed
         if not os.path.exists(os.path.join(args.out_dir, f"mtf_mcx_{newest:%Y%m%d}.csv")):
             # The index lists this session, so an empty answer is the mirror mid-update,
             # not a holiday. Building anyway would publish a site a day behind the
