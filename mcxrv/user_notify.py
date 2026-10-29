@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 
 from mcxrv import supa
 from mcxrv.notify import PUSH_STYLE
@@ -80,6 +81,7 @@ def fanout(events: list[dict], run_id: str = "", only_user: str | None = None,
     out["users"] = len(prefs)
 
     rows = []
+    delivered: set = set()
     for pref in prefs:
         uid = pref["user_id"]
         for ev in events:
@@ -95,6 +97,7 @@ def fanout(events: list[dict], run_id: str = "", only_user: str | None = None,
                                session=push_session)
                 if status in (200, 201, 202):
                     out["pushed"] += 1
+                    delivered.add(dev["id"])
                 elif status in (404, 410):          # the browser unsubscribed or was reset
                     try:
                         supa.delete("push_subscriptions", {"id": dev["id"]}, session=session)
@@ -103,6 +106,14 @@ def fanout(events: list[dict], run_id: str = "", only_user: str | None = None,
                         out["errors"].append(f"remove device: {exc}")
                 elif status is not None:
                     out["push_failed"] += 1
+    # When each device last took a push: a phone that stops answering shows up here
+    # long before anyone notices the missing alerts.
+    now = datetime.now(timezone.utc).isoformat()
+    for dev_id in sorted(delivered):
+        try:
+            supa.update("push_subscriptions", {"id": dev_id}, {"last_ok_at": now}, session=session)
+        except Exception as exc:
+            out["errors"].append(f"mark device: {exc}")
     if rows:
         try:
             supa.insert("notifications", rows, session=session)
