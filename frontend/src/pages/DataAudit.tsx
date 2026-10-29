@@ -1,4 +1,5 @@
-import { useAnomalies, useDataQuality, useHealth, useResearch, type Anomalies } from "../api";
+import { useAnomalies, useCirculars, useDataQuality, useHealth, useResearch, useRiskFiles, type Anomalies } from "../api";
+import { CircularsCard, RiskFilesCard } from "../components/ExchangeInputs";
 import { fdate, fexp, fin, int, ist, num, pct } from "../format";
 import { Card, Chip, Kpi, Loaded } from "../components/ui";
 
@@ -50,6 +51,8 @@ export default function DataAudit() {
   const h = useHealth();
   const r = useResearch();
   const an = useAnomalies();
+  const rf = useRiskFiles();
+  const circ = useCirculars();
   return (
     <Loaded q={q}>{(d) => {
       const a = d.archive;
@@ -76,6 +79,8 @@ export default function DataAudit() {
             </table></div>
           </Card>
         ) : <section className="card"><p className="lede">No download log: this run did not read a directory of bhavcopy files (source: {h.data?.source}).</p></section>}
+        {rf.data && <RiskFilesCard r={rf.data} source={r.data?.meta.span_parameters} />}
+        {circ.data && <CircularsCard c={circ.data} />}
         {an.data && <AnomalyReview a={an.data} />}
         <div className="grid2">
           <Card title="Coverage" note="per contract family">
