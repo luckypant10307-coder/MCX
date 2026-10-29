@@ -4,7 +4,9 @@ from datetime import date
 import numpy as np
 import pytest
 
-from mcxrv import backtest, costs, specs
+from mcxrv.stage4_simulate_deliver import replay_driver as backtest
+from mcxrv.stage3_gates_decision import liquidity_cost as costs
+from mcxrv.stage1_intake import specs
 
 
 # --------------------------------------------------------------------- sizing
@@ -141,7 +143,7 @@ def test_impact_grows_with_participation():
 # ----------------------------------------------------------- roll-down algebra
 
 def test_roll_down_is_negative_for_contango():
-    from mcxrv import carry
+    from mcxrv.stage2_normalize_signal import half_life as carry
     rd = carry.roll_down_bp(slope=0.06, tau_years=0.25, holding_sessions=20)
     assert rd < 0
 

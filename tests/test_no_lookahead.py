@@ -10,8 +10,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mcxrv import carry, ingest, normalize
-from mcxrv import signal as sig_mod
+from mcxrv.stage2_normalize_signal import half_life as carry
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage2_normalize_signal import z_score as sig_mod
 from mcxrv.sources.synthetic import SyntheticConfig, SyntheticSource
 
 

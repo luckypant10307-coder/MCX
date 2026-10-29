@@ -1,6 +1,59 @@
-import type { Circulars, RiskFiles } from "../api";
-import { fdate, ist, pct } from "../format";
+import type { Circulars, PublishedMargins, RiskFiles } from "../api";
+import { fdate, inr, ist, num, pct } from "../format";
 import { Card, Chip } from "./ui";
+
+const GOLD = ["GOLDM", "GOLDTEN", "GOLDGUINEA", "GOLDPETAL"];
+const SOURCE: Record<string, string> = { zerodha: "Zerodha margin page", abml: "Aditya Birla Money sheet" };
+const rate = (v: unknown) => (typeof v === "number" ? `${num(v, 2)}%` : "–");
+
+/** Outright margin rates as brokers republish them from MCXCCL, and every revision on record. */
+export function MarginsCard({ m, source }: { m: PublishedMargins; source?: string }) {
+  if (!m.available)
+    return (
+      <Card title="Published margin rates" note="broker sheets">
+        <p className="note">None stored: {m.reason}. Run <span className="mono">python scripts/fetch_margins.py</span>.</p>
+      </Card>);
+  // Only the days a rate moved: the history is long and almost always flat.
+  const revisions = (m.history ?? []).filter((h, i, all) =>
+    i === 0 || GOLD.some((s) => h[s] !== undefined && all[i - 1][s] !== undefined && Math.abs(Number(h[s]) - Number(all[i - 1][s])) >= 0.25));
+  const breakdown = (m.contracts ?? []).some((c) => c.initial_pct !== undefined);
+  return (
+    <Card title="Published margin rates" note={`${m.days} day(s) on record · ${fdate(m.first)} – ${fdate(m.last)}`}>
+      <div className="row" style={{ gap: 28 }}>
+        {GOLD.map((s) => (
+          <div key={s}><div className="sub">{s}</div><b style={{ fontSize: 22 }}>{rate(m.latest?.[s])}</b></div>))}
+      </div>
+      <p className="note">Latest: {fdate(m.last)}, from the {SOURCE[m.last_source ?? ""] ?? m.last_source}. Share of contract value blocked per
+        outright lot (SPAN + additional + ELM). In use: <b>{source ?? "–"}</b>.</p>
+      {m.changes?.length ? (
+        <div className="well"><b>Rate changed.</b> {m.changes.map((c) => `${c.symbol} ${num(c.from_pct, 2)}% → ${num(c.to_pct, 2)}%`).join(" · ")}
+          {" "}({fdate(m.changes[0].from_date)} → {fdate(m.changes[0].to_date)}).</div>) : null}
+      <div className="tw"><table>
+        <thead><tr><th>Contract</th><th>Expiry</th>{breakdown && <><th className="num">Initial</th><th className="num">Additional</th><th className="num">ELM</th></>}
+          <th className="num">Total</th><th className="num">Per lot</th></tr></thead>
+        <tbody>{(m.contracts ?? []).map((c) => (
+          <tr key={c.symbol + c.expiry}><td><b>{c.symbol}</b></td>
+            <td className="nw">{/^\d{4}-/.test(c.expiry) ? fdate(c.expiry) : c.expiry}</td>
+            {breakdown && <><td className="num">{rate(c.initial_pct)}</td><td className="num">{rate(c.additional_pct)}</td><td className="num">{rate(c.elm_pct)}</td></>}
+            <td className="num"><b>{rate(c.total_pct)}</b>{c.tender_pct || c.delivery_pct ? <span className="sub"> delivery</span> : null}</td>
+            <td className="num">{inr(c.margin_inr)}</td></tr>))}
+        </tbody>
+      </table></div>
+      {revisions.length > 1 && (
+        <>
+          <h4 style={{ margin: "18px 0 6px" }}>Revisions on record</h4>
+          <div className="tw"><table>
+            <thead><tr><th>From</th>{GOLD.map((s) => <th key={s} className="num">{s}</th>)}</tr></thead>
+            <tbody>{[...revisions].reverse().slice(0, 15).map((h) => (
+              <tr key={h.date}><td className="nw">{fdate(h.date)}</td>{GOLD.map((s) => <td key={s} className="num">{rate(h[s])}</td>)}</tr>))}
+            </tbody>
+          </table></div>
+        </>)}
+      <p className="note">{m.note} A rate is applied to the sessions it was published for and carried at most 14 days; sessions with no
+        sheet keep the volatility estimate. Months in their tender or delivery period are left out of the rate used.</p>
+    </Card>
+  );
+}
 
 const TOPIC: Record<string, string> = {
   margin: "margin", margin_withdrawal: "margin withdrawn", specification: "contract specification", launch: "new contract",

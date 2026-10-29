@@ -30,8 +30,11 @@ from datetime import date, datetime, timezone
 import numpy as np
 import pandas as pd
 
-from mcxrv import costs, eventstudy, normalize, specs
-from mcxrv.signal import SignalConfig
+from mcxrv.stage3_gates_decision import liquidity_cost as costs
+from mcxrv.stage4_simulate_deliver import eventstudy
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage1_intake import specs
+from mcxrv.stage2_normalize_signal.z_score import SignalConfig
 
 SCHEMA_VERSION = 2          # 2: adds the full-history "research" section
 # Notional and half-spread behind the event study's cost line: the same assumption
@@ -144,7 +147,7 @@ def liquidity_level(symbol: str, avg_lots: float | None) -> str | None:
     The minimum is the same threshold the tradability gate uses (pair_match), so the
     colour and the gate cannot disagree.
     """
-    from mcxrv.liquidity import LiquidityConfig
+    from mcxrv.stage2_normalize_signal.pair_match import LiquidityConfig
     if avg_lots is None or not np.isfinite(avg_lots):
         return None
     floor = LiquidityConfig().min_volume_lots.get(symbol, 10.0)
@@ -186,7 +189,7 @@ def archive_log(csv_dir: str, show: int = 30) -> dict:
     MCX answering a different day -- the date echo the validator also flags per row.
     """
     import hashlib as _h
-    from mcxrv.ingest import parse_response_date
+    from mcxrv.stage1_intake.validation import parse_response_date
     from mcxrv.sources.csv_dir import CSVDirectorySource
     src = CSVDirectorySource(csv_dir)
     files = src._files()
@@ -223,9 +226,9 @@ def archive_log(csv_dir: str, show: int = 30) -> dict:
 
 def engine_parameters(result) -> list[dict]:
     """The settings the run actually used, each with what it does. Read-only."""
-    from mcxrv.backtest import BacktestConfig
-    from mcxrv.carry import CarryConfig
-    from mcxrv.risk import RiskBoardConfig
+    from mcxrv.stage4_simulate_deliver.replay_driver import BacktestConfig
+    from mcxrv.stage2_normalize_signal.half_life import CarryConfig
+    from mcxrv.stage3_gates_decision.risk import RiskBoardConfig
     sc, bc, cc = SignalConfig(z_entry=result.config.z_entry), BacktestConfig(), CarryConfig()
     return [
         {"group": "Signal", "name": "Unusual if |z| ≥", "value": sc.z_entry, "unit": "",
@@ -276,7 +279,7 @@ def anomaly_review(result) -> dict:
     the forest is fit on the whole sample, which is fine for an audit and would be
     look-ahead if it filtered a backtest (see mcxrv/stage1_intake/anomaly.py).
     """
-    from mcxrv import anomaly as an
+    from mcxrv.stage1_intake import anomaly as an
     rows = result.rows
     if not an.available():
         return {"available": False, "reason": "scikit-learn is not installed"}

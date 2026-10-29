@@ -94,6 +94,12 @@ def risk_files(store: SnapshotStore) -> dict:
                                              "recent": [], "dates": []}
 
 
+def published_margins(store: SnapshotStore) -> dict:
+    return store.get().get("published_margins") or {
+        "available": False, "days": 0,
+        "reason": "this snapshot predates published margin rates; rebuild it with scripts/nightly.py"}
+
+
 def anomalies(store: SnapshotStore) -> dict:
     a = store.get().get("anomalies")
     if not a:

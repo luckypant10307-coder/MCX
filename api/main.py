@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from api import service
 from mcxrv import supa
@@ -77,6 +78,35 @@ def send_test(request: Request):
     return res
 
 
+@app.post("/api/chat")
+async def chat(request: Request):
+    """Ask the assistant a question about the latest snapshot (read-only)."""
+    from mcxrv import assistant
+    if not assistant.configured():
+        raise HTTPException(status_code=503, detail="The assistant is not set up on this server.")
+    body = await request.json()
+    user = getattr(request.state, "user", None) or {}
+    try:
+        snap = store.get()
+    except service.NotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    who = user.get("id") or (request.client.host if request.client else "local")
+    try:
+        left = assistant.take_question(who)
+    except assistant.ChatLimit as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    try:
+        reply = await run_in_threadpool(assistant.answer, body.get("message", ""),
+                                        body.get("history") or [], snap)
+    except ValueError as e:
+        assistant.give_back(who)
+        raise HTTPException(status_code=400, detail=str(e))
+    except assistant.ChatUnavailable as e:
+        assistant.give_back(who)
+        raise HTTPException(status_code=503, detail=str(e))
+    return {**reply, "questions_left": left}
+
+
 def _wrap(fn, *a, **kw):
     try:
         return fn(store, *a, **kw)
@@ -130,6 +160,12 @@ def backtest():
 def circulars():
     """MCX margin / specification circulars found by TinyFish search; new ones marked."""
     return _wrap(service.circulars)
+
+
+@app.get("/api/margins")
+def margins():
+    """Published MCX outright margin rates (broker sheets), newest first, and revisions."""
+    return _wrap(service.published_margins)
 
 
 @app.get("/api/risk-files")

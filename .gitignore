@@ -18,3 +18,9 @@ frontend/node_modules/
 frontend/dist/
 data/risk/*
 !data/risk/.gitkeep
+
+# Local editor and AI-tool settings (may hold keys)
+.alpme/
+.kilo/
+.vscode/
+.venv-1/

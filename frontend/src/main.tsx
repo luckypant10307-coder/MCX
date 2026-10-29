@@ -35,6 +35,7 @@ const Research = lazy(() => import("./pages/Research"));
 const Backtest = lazy(() => import("./pages/Backtest"));
 const DataAudit = lazy(() => import("./pages/DataAudit"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Ask = lazy(() => import("./pages/Ask"));
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -51,6 +52,7 @@ createRoot(document.getElementById("root")!).render(
               <Route path="research" element={<Research />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="data" element={<DataAudit />} />
+              <Route path="ask" element={<Ask />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<Overview />} />
             </Route>

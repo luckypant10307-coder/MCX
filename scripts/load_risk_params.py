@@ -36,7 +36,9 @@ from dataclasses import asdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mcxrv import margin, spanfile, specs
+from mcxrv.stage3_gates_decision import margin_capital as margin
+from mcxrv.stage3_gates_decision import spanfile
+from mcxrv.stage1_intake import specs
 
 
 def parse_args():

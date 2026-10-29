@@ -2,10 +2,12 @@ name: nightly snapshot
 
 # The daily routine, with real MCX data:
 #   1. download new bhavcopy sessions (mtf.trading), keeping earlier ones in a cache
-#   2. build the snapshot over the full history
+#   2. read today's published margin rates, build the snapshot over the full history
 #   3. notify: owner channels (ntfy / Telegram) and every registered user (Supabase:
 #      notification centre + web push), only for what changed
 #   4. rebuild the Render site, but only when a new session actually arrived
+#   5. timestamp what the monitor said in Bitcoin (OpenTimestamps) and keep the
+#      record and its proof on the `attestations` branch
 #
 # Twice per weekday: 00:15 IST after the MCX evening session, and 09:00 IST to pick up
 # a session the source published late. Messages only go out on a change, so a second
@@ -25,7 +27,9 @@ on:
         default: false
 
 permissions:
-  contents: read
+  # write: the job commits each session's timestamped record to the `attestations`
+  # branch. It never pushes to main.
+  contents: write
 
 concurrency:
   group: nightly
@@ -53,14 +57,16 @@ jobs:
           key: bhavcopy-${{ github.run_id }}
           restore-keys: bhavcopy-
 
-      # Yesterday's snapshot (for the change-only notifications) and the list of
-      # circular links already seen.
+      # Yesterday's snapshot (for the change-only notifications), the list of
+      # circular links already seen, and the published margin rates gathered so far
+      # (newer than the copy committed in the repo).
       - name: Restore previous state
         uses: actions/cache/restore@v4
         with:
           path: |
             data/processed/snapshot.json
             data/processed/circulars_seen.json
+            data/reference/published_margins.json
           key: state-${{ github.run_id }}
           restore-keys: state-
 
@@ -107,6 +113,30 @@ jobs:
           EOF
           echo "before: ${{ steps.before.outputs.asof }}"
 
+      # A tamper-evident record of what the monitor said, timestamped in Bitcoin via
+      # OpenTimestamps. Kept on its own branch, one small file per session, so main
+      # stays code only. Earlier proofs still pending are upgraded on every run.
+      - name: Timestamp today's signals
+        if: env.SOURCE == 'csv'
+        continue-on-error: true          # a calendar outage must not fail the night
+        run: |
+          set -e
+          if git ls-remote --exit-code --heads origin attestations >/dev/null; then
+            git fetch -q origin attestations
+            git worktree add -q ../att FETCH_HEAD
+            git -C ../att checkout -q -B attestations
+          else
+            git worktree add -q --detach ../att
+            git -C ../att checkout -q --orphan attestations
+            git -C ../att rm -rqf .
+          fi
+          python scripts/attest.py --snapshot data/processed/snapshot.json --dir ../att/attestations
+          cd ../att
+          git add attestations
+          if git diff --cached --quiet; then echo "nothing new to record"; exit 0; fi
+          git -c user.name="github-actions[bot]"               -c user.email="41898282+github-actions[bot]@users.noreply.github.com"               commit -qm "Record session ${{ steps.after.outputs.asof }}"
+          git push -q origin attestations
+
       - name: Save bhavcopy archive
         if: always() && env.SOURCE == 'csv'
         uses: actions/cache/save@v4
@@ -121,6 +151,7 @@ jobs:
           path: |
             data/processed/snapshot.json
             data/processed/circulars_seen.json
+            data/reference/published_margins.json
           key: state-${{ github.run_id }}
 
       - uses: actions/upload-artifact@v4
@@ -129,11 +160,31 @@ jobs:
           path: data/processed/snapshot.json
           retention-days: 30
 
+      # The live site can fall behind this job: its image downloads the data itself,
+      # and a mirror mid-update at build time once left it a session behind. Ask the
+      # site which session it shows (/api/health is public) and rebuild when it lags.
+      - name: Is the live site behind?
+        id: live
+        if: env.SOURCE == 'csv'
+        env:
+          LIVE_SITE_URL: ${{ vars.LIVE_SITE_URL || 'https://mcx-iefc.onrender.com' }}
+        run: |
+          # free hosts sleep; allow a cold start
+          live=$(curl -fsS --max-time 150 "$LIVE_SITE_URL/api/health" \
+                 | python -c "import json,sys; print(json.load(sys.stdin).get('asof') or '')" || true)
+          echo "live site shows: ${live:-unknown}, this run: ${{ steps.after.outputs.asof }}"
+          if [ -n "$live" ] && [ "$live" \< "${{ steps.after.outputs.asof }}" ]; then
+            echo "behind=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "behind=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # The Render image downloads the data itself at build time, so a deploy IS the
-      # refresh. Only trigger it when there is something new to show.
+      # refresh. Trigger it when there is something new to show, or the site lags.
       - name: Rebuild the live site
         if: >-
           env.SOURCE == 'csv' && (steps.after.outputs.asof != steps.before.outputs.asof
+          || steps.live.outputs.behind == 'true'
           || github.event.inputs.force_deploy == 'true')
         env:
           DEPLOY_HOOK: ${{ secrets.SNAPSHOT_DEPLOY_HOOK }}
