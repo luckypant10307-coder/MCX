@@ -39,8 +39,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from . import backtest as bt_mod
-from . import margin as margin_mod
+from ..stage4_simulate_deliver import replay_driver as bt_mod
+from . import margin_capital as margin_mod
 
 
 @dataclass
@@ -302,6 +302,11 @@ def board(rows: pd.DataFrame, pair_sig: pd.DataFrame,
     df = pd.DataFrame(out)
     if df.empty:
         return df
+    # A session where every pair is "unavailable" (all contracts inside the expiry
+    # runway) has none of the margin columns; add them so the sort below still works.
+    for col in ("buffer_state", "utilisation_if_added"):
+        if col not in df.columns:
+            df[col] = np.nan
     # Worst state first: what a desk needs to see is what is blocked, not what is fine.
     df["_ord"] = df["buffer_state"].map(_BUFFER_ORDER).fillna(9)
     df = df.sort_values(["_ord", "utilisation_if_added"],

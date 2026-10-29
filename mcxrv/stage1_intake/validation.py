@@ -102,7 +102,10 @@ def parse_response_date(token, requested: date | None = None):
     dmy = _try(s, "%d/%m/%Y")
 
     if mdy is None and dmy is None:
-        for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d%b%Y", "%d-%b-%Y"):
+        # Text-month formats are unambiguous. "%d %b %Y" is the current MCX
+        # bhavcopy download ("01 Oct 2026"); the others are older vintages.
+        for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d%b%Y", "%d-%b-%Y", "%d %b %Y",
+                    "%d %B %Y"):
             alt = _try(s, fmt)
             if alt is not None:
                 return alt, "ok"
@@ -179,6 +182,20 @@ def tidy(raw: pd.DataFrame, symbols=None, strict: bool = False):
     if df.empty:
         rep.rows_out = 0
         return pd.DataFrame(columns=TIDY_COLUMNS), rep
+
+    # ---- instrument: futures only ----
+    # Current MCX downloads mix options on the same symbol (OPTFUT, with a strike
+    # and CE/PE) into the file. Their prices are premiums, not futures prices, and
+    # would collide with the futures rows on (date, contract) if let through.
+    if "Instrument" in df.columns and df["Instrument"].notna().any():
+        inst = df["Instrument"].astype(str).str.strip().str.upper()
+        fut = inst.isin(("FUTCOM", "FUTIDX", "", "NONE", "NAN"))
+        if (~fut).any():
+            rep.bump("non_futures_rows_dropped", int((~fut).sum()))
+            df = df[fut].copy()
+        if df.empty:
+            rep.rows_out = 0
+            return pd.DataFrame(columns=TIDY_COLUMNS), rep
 
     # ---- date: parse, then cross-check the echo against what we asked for ----
     req = None

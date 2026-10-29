@@ -34,8 +34,12 @@ _ALIASES = {
     "Low": ["Low", "LOW", "Low Price", "LOW PRICE"],
     "Close": ["Close", "CLOSE", "Close Price", "CLOSE PRICE",
               "Settlement Price", "SETTLEMENT PRICE", "Settle"],
-    "Volume": ["Volume", "VOLUME", "Qty", "QTY", "Traded Qty", "VOLUME (LOTS)"],
-    "OpenInterest": ["OpenInterest", "OPEN INTEREST", "OI", "Open Interest"],
+    "Volume": ["Volume", "VOLUME", "Qty", "QTY", "Traded Qty", "VOLUME (LOTS)",
+               "Volume(Lots)"],
+    "OpenInterest": ["OpenInterest", "OPEN INTEREST", "OI", "Open Interest",
+                     "Open Interest(Lots)"],
+    # Present in current downloads, which carry options alongside futures.
+    "Instrument": ["Instrument Name", "INSTRUMENT", "Instrument", "InstrumentName"],
 }
 
 _DATE_IN_NAME = re.compile(r"(20\d{2})[-_]?(\d{2})[-_]?(\d{2})")
@@ -102,12 +106,16 @@ class CSVDirectorySource(BhavcopySource):
 
     @staticmethod
     def _map_columns(df: pd.DataFrame) -> pd.DataFrame:
-        norm = {str(c).strip().upper(): c for c in df.columns}
+        # Compare headers with case and ALL whitespace removed: MCX writes both
+        # "Volume (Lots)" and "Volume(Lots)" depending on the download.
+        def _k(x):
+            return re.sub(r"\s+", "", str(x)).upper()
+        norm = {_k(c): c for c in df.columns}
         out = {}
         for canon, aliases in _ALIASES.items():
             found = None
             for a in aliases:
-                key = a.strip().upper()
+                key = _k(a)
                 if key in norm:
                     found = norm[key]
                     break

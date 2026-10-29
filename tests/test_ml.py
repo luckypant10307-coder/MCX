@@ -307,9 +307,14 @@ def test_anomaly_flags_never_reach_the_model():
     rather than by convention -- no modelling module may reference this one.
     """
     import pathlib
-    root = pathlib.Path(carry.__file__).parent
-    for mod in ("carry.py", "signal.py", "backtest.py", "eventstudy.py",
-                "liquidity.py", "attribution.py", "ingest.py"):
-        src = (root / mod).read_text(encoding="utf-8")
-        assert "import anomaly" not in src and "from .anomaly" not in src, \
-            "{} must not depend on anomaly detection".format(mod)
+    import re
+
+    from mcxrv import attribution, backtest, eventstudy
+    from mcxrv import signal as sig_mod
+    # Modules are located by __file__, not by a hardcoded path, so this keeps
+    # working wherever the package layout puts them.
+    pattern = re.compile(r"import\s+anomaly\b|from\s+\S*anomaly\s+import")
+    for mod in (carry, sig_mod, backtest, eventstudy, liquidity, attribution, ingest):
+        src = pathlib.Path(mod.__file__).read_text(encoding="utf-8")
+        assert not pattern.search(src), \
+            "{} must not depend on anomaly detection".format(mod.__name__)

@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import specs
+from ..stage1_intake import specs
 
 
 SPEC_FIELDS = ("purity", "quote_base_g", "trading_unit_g", "fine_g_per_lot",
