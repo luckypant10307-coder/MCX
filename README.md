@@ -332,6 +332,13 @@ data.
 
 ### Getting real MCX data
 
+The current bhavcopy download (`BhavCopyDateWise_DDMMYYYY.csv`) writes dates as
+`22 Oct 2026`, headers as `Volume(Lots)` / `Open Interest(Lots)`, and mixes options
+(`Instrument Name = OPTFUT`) in with futures. The reader handles all three: only
+FUTCOM rows are kept, and repeated downloads of the same day (a browser saves them as
+`... (1).csv`, `... (2).csv`) collapse to one session. `tests/test_real_format.py`
+runs on eight real rows from the 22 Oct 2026 file.
+
 `www.mcxindia.com` sits behind Akamai bot protection that rejects non-browser TLS
 clients regardless of headers — this was verified, and no attempt is made to defeat
 it. Three sources are provided behind one interface:
@@ -730,6 +737,7 @@ Each pair gets one status for the latest session, and always a reason:
 | ALERT | z beyond ±2 (the entry level), all four gates passed, and the risk board says "may add" or "add reduced size" |
 | NO_TRADE | unusual, but something refused: the failed gates are listed, or the risk-board reason |
 | QUIET | z inside ±2 |
+| WARMUP | not enough history to score yet (the signal needs about 100 sessions per pair) |
 
 The decision log covers recent history, where each unusual session is TRADED
 (entered next session), SIGNAL (gates passed but not entered: book full, already

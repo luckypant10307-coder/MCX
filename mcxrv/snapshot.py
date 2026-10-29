@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from mcxrv import normalize, specs
+from mcxrv.signal import SignalConfig
 
 SCHEMA_VERSION = 1
 HISTORY_SESSIONS = 250
@@ -111,8 +112,11 @@ def decide(pair_row, board_row, z_entry: float) -> dict:
             "binding_gate": None}
 
 
-def _verdict(perf: dict) -> dict:
+def _verdict(perf: dict, warming_up: str | None = None) -> dict:
     n = int(perf.get("n_trades") or 0)
+    if n == 0 and warming_up:
+        return {"headline": "Not enough history to backtest yet ({}).".format(warming_up),
+                "edge_survives_costs": None}
     if n == 0:
         return {"headline": "No trades taken: every candidate failed a gate.",
                 "edge_survives_costs": False}
@@ -188,8 +192,36 @@ def build(result, generated_at: datetime | None = None) -> dict:
                         "buffer_state", "span_change_pct", "sessions_to_expiry",
                         "residual_frac")},
             }))
-        order = {"ALERT": 0, "NO_TRADE": 1, "QUIET": 2}
-        latest_pairs.sort(key=lambda p: (order[p["status"]], -abs(p["z"] or 0)))
+
+    # Pairs the signal could not score yet (too little history) still appear, so a
+    # fresh real-data run says "warming up" instead of looking like missing data.
+    counts["WARMUP"] = 0
+    if q is not None and not q.empty:
+        last_syms = set(q.loc[q["date"] == q["date"].max(), "symbol"])
+        syms = [x for x in specs.ALL_SYMBOLS if x in last_syms]
+        have = {p["pair"] for p in latest_pairs}
+        n_sessions = int(q["date"].nunique())
+        need = SignalConfig().min_history + 10      # pair_spreads' own threshold
+        for i, a in enumerate(syms):
+            for b in syms[i + 1:]:
+                name = "{}/{}".format(a, b)
+                if name in have:
+                    continue
+                counts["WARMUP"] += 1
+                latest_pairs.append(clean({
+                    "pair": name, "sym_a": a, "sym_b": b,
+                    "maturity_matched": specs.is_maturity_matched(a, b),
+                    "spread_bp": None, "centre_bp": None, "scale_bp": None, "z": None,
+                    "dislocation_bp": None, "halflife": None, "adf_t": None,
+                    "gates": {g: g != "gate_history" and None for g in GATE_LABELS},
+                    "signal_ok": False, "direction": None,
+                    "status": "WARMUP",
+                    "reason": "warming up: {} of {} sessions of history".format(
+                        n_sessions, need),
+                    "binding_gate": "history", "risk": None,
+                }))
+    order = {"ALERT": 0, "NO_TRADE": 1, "QUIET": 2, "WARMUP": 3}
+    latest_pairs.sort(key=lambda p: (order[p["status"]], -abs(p["z"] or 0)))
 
     # pair history for charts
     history = {}
@@ -283,7 +315,11 @@ def build(result, generated_at: datetime | None = None) -> dict:
                                           (rep.details.get("date_echo_examples") or [])})[:10],
         },
         "backtest": {"performance": perf, "trades": trades,
-                     "verdict": _verdict(result.performance)},
+                     "verdict": _verdict(
+                         result.performance,
+                         warming_up=latest_pairs[0]["reason"].split(": ", 1)[1]
+                         if latest_pairs and counts["WARMUP"] == len(latest_pairs)
+                         else None)},
     }
     return clean(snap)
 

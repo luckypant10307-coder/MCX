@@ -69,7 +69,19 @@ def expiry_window_ok(symbol: str, expiry: date) -> bool:
     sp = specs.get(symbol)
     last_dom = _pycal.monthrange(expiry.year, expiry.month)[1]
     hi = min(sp.expiry_day_hi, last_dom)
-    return sp.expiry_day_lo <= expiry.day <= hi
+    lo = min(sp.expiry_day_lo, hi)
+    if lo <= expiry.day <= hi:
+        return True
+    # An expiry that would fall on a weekend moves to the nearest business day,
+    # which can sit just outside the nominal window: 26 Feb 2027 is the last
+    # business day of a February whose 27th and 28th are a weekend. Accept it only
+    # when EVERY day of the window is a weekend, so a genuinely misplaced expiry
+    # still surfaces. (Exchange holidays are not modelled here.)
+    window = [date(expiry.year, expiry.month, d) for d in range(lo, hi + 1)]
+    if all(d.weekday() >= 5 for d in window):
+        gap = (window[0] - expiry).days if expiry.day < lo else (expiry - window[-1]).days
+        return 0 < gap <= 3 and expiry.weekday() < 5
+    return False
 
 
 @dataclass(frozen=True)
