@@ -22,7 +22,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 
-from mcxrv import spanfile
+from mcxrv.stage3_gates_decision import spanfile
 
 DEFAULT_ROOT = os.path.join("data", "risk")
 LOG_KEEP = 200
