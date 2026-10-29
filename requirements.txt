@@ -1,0 +1,9 @@
+pandas>=2.2
+numpy>=1.26
+scipy>=1.11
+requests>=2.31
+psycopg[binary]>=3.1
+
+# Optional. Absent, the carry fit falls back to weighted least squares and the
+# anomaly review queue is skipped; nothing else changes and nothing raises.
+scikit-learn>=1.3

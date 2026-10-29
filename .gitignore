@@ -1,0 +1,12 @@
+!data/**/.gitkeep
+*.pyc
+.env
+.pytest_cache/
+.venv*/
+.venv/
+__pycache__/
+data/interim/*
+data/processed/*
+data/raw/*
+reports/*.csv
+reports/*.html
