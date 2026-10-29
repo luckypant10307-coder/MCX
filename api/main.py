@@ -77,6 +77,12 @@ def backtest():
     return _wrap(service.backtest)
 
 
+@app.get("/api/settings")
+def settings():
+    """Engine parameters used by this run, and per-pair z history for what-if counts."""
+    return _wrap(service.settings)
+
+
 @app.get("/api/research")
 def research():
     """Full-history evidence: event study, cost sweep, premiums, coverage, by-year."""

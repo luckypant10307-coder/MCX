@@ -109,7 +109,16 @@ def risk_board(store: SnapshotStore) -> list[dict]:
 def data_quality(store: SnapshotStore) -> dict:
     s = store.get()
     return {**s["data_quality"], "run_id": s["meta"]["run_id"],
-            "data_fingerprint": s["meta"]["data_fingerprint"], "asof": s["meta"]["asof"]}
+            "data_fingerprint": s["meta"]["data_fingerprint"], "asof": s["meta"]["asof"],
+            "archive": s.get("archive"),
+            "coverage": (s.get("research") or {}).get("coverage", [])}
+
+
+def settings(store: SnapshotStore) -> dict:
+    s = store.get()
+    return {"parameters": s.get("parameters", []), "z_entry": s["meta"]["z_entry"],
+            "pair_history": {k: [{"date": r["date"], "z": r["z"]} for r in v]
+                             for k, v in s.get("pair_history", {}).items()}}
 
 
 def backtest(store: SnapshotStore) -> dict:
