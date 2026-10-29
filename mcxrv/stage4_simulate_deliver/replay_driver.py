@@ -69,6 +69,12 @@ class BacktestConfig:
     maintenance_pct: float = 1.0        # 100% of requirement: Indian practice
     margin_call_grace_sessions: int = 1  # T+1 pay-in
     force_liquidate_on_call: bool = True
+    # Account kill switch: once the account is this fraction of account_capital below
+    # its peak value, no NEW positions are opened (open ones are still managed to their
+    # exits). None leaves it off, so default results are unchanged. It does not reset
+    # by itself: with nothing open the account cannot recover, which is the point --
+    # restarting after a stop is a human decision, not a rule.
+    max_drawdown_halt_pct: float | None = None
     emit_position_daily: bool = True
     max_holding_sessions: int = 40
     exit_z: float = 0.5
@@ -295,6 +301,9 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
     call_streak = 0
     forced_liquidations: list = []
     next_trade_id = 0
+    # Account value at the previous close and its running peak, for the kill switch.
+    # Only information available before today's entries is used.
+    last_value = peak_value = cfg.account_capital
 
     def bump(k, n=1):
         diag[k] = diag.get(k, 0) + n
@@ -399,7 +408,11 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
 
         # ---------------- consider new entries ----------------
         g = sig_by_date.get(t)
-        if g is not None and len(open_pos) < cfg.max_concurrent:
+        halted = (cfg.max_drawdown_halt_pct is not None
+                  and peak_value - last_value >= cfg.max_drawdown_halt_pct * cfg.account_capital)
+        if halted and g is not None and bool((g["signal_ok"] & (g["direction"] != 0)).any()):
+            bump("skip_drawdown_halt")
+        if not halted and g is not None and len(open_pos) < cfg.max_concurrent:
             cand = g[g["signal_ok"] & (g["direction"] != 0)]
             if not cfg.allow_pairs_with_goldm:
                 cand = cand[cand["maturity_matched"]]
@@ -546,6 +559,7 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
 
         # --- account solvency: can the book actually be funded? ---
         equity_now = cfg.account_capital + realised + unreal
+        last_value, peak_value = equity_now, max(peak_value, equity_now)
         required = day_margin * cfg.maintenance_pct
         in_call = bool(open_pos) and equity_now < required
         if in_call:

@@ -60,7 +60,15 @@ def overview(store: SnapshotStore) -> dict:
         "data_quality": {"rows_in": dq["rows_in"], "rows_out": dq["rows_out"],
                          "date_echo_rows": dq["flags"].get("date_echo_rows", 0)},
         "gold_level": s["gold_level"],
+        "account": s.get("account") or {},
     }
+
+
+def anomalies(store: SnapshotStore) -> dict:
+    a = store.get().get("anomalies")
+    if not a:
+        raise NotFound("this snapshot has no anomaly review; rebuild it with scripts/nightly.py")
+    return a
 
 
 def pairs(store: SnapshotStore, status: str | None = None) -> list[dict]:
