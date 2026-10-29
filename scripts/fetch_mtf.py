@@ -77,6 +77,10 @@ def main(argv=None) -> int:
     p.add_argument("--end", default=None, help="YYYY-MM-DD (default: latest available)")
     p.add_argument("--delay", type=float, default=0.25, help="seconds between requests")
     p.add_argument("--refetch", action="store_true", help="overwrite files already on disk")
+    p.add_argument("--require-latest", action="store_true",
+                   help="exit non-zero if the newest session in the index is not on disk "
+                        "afterwards (used by the image build, so a mirror hiccup fails the "
+                        "build and the previous deploy keeps serving)")
     args = p.parse_args(argv)
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -114,6 +118,15 @@ def main(argv=None) -> int:
         time.sleep(args.delay)
 
     print(f"done: saved {got}, already on disk {skipped}, empty {empty} -> {args.out_dir}")
+    if args.require_latest:
+        newest = dates[-1]
+        if not os.path.exists(os.path.join(args.out_dir, f"mtf_mcx_{newest:%Y%m%d}.csv")):
+            # The index lists this session, so an empty answer is the mirror mid-update,
+            # not a holiday. Building anyway would publish a site a day behind the
+            # nightly job, and nothing would rebuild it until the next session.
+            print(f"newest listed session {newest} came back empty; failing so the "
+                  "previous deploy keeps serving", file=sys.stderr)
+            return 1
     return 0
 
 
