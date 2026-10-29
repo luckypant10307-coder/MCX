@@ -7,6 +7,7 @@ import { setTokenGetter } from "./api";
 
 export interface AppConfig {
   auth_enabled: boolean; supabase_url: string | null; supabase_publishable_key: string | null; vapid_public_key: string | null;
+  chat_enabled?: boolean;
 }
 interface AuthState {
   ready: boolean; config: AppConfig | null; supabase: SupabaseClient | null;
