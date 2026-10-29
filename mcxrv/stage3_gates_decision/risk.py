@@ -264,6 +264,10 @@ def board(rows: pd.DataFrame, pair_sig: pd.DataFrame,
 
         out.append({
             "pair": rec.pair, "date": asof,
+            # The contracts actually priced: the most-traded one per leg with enough
+            # runway, which is often NOT the front month near expiry.
+            "contract_a": cid_a, "contract_b": cid_b,
+            "sessions_a": int(s2e_a), "sessions_b": int(s2e_b),
             "lots_a": int(lots_a), "lots_b": int(lots_b), "direction": direction,
             "notional_exposure": float(m_alone["notional"]),
             "residual_frac": float(resid_frac),
