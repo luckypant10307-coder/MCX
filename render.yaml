@@ -31,3 +31,10 @@ services:
         sync: false
       - key: TINYFISH_API_KEY
         sync: false
+      # "Ask" assistant (Gemini). Leave GEMINI_API_KEY unset to hide it.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: CHAT_DAILY_LIMIT
+        value: "40"

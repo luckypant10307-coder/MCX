@@ -11,7 +11,8 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from mcxrv import circulars, risk_inbox, spanfile
+from mcxrv import circulars, risk_inbox
+from mcxrv.stage3_gates_decision import spanfile
 
 MARGIN_CSV = """MULTI COMMODITY EXCHANGE CLEARING CORPORATION
 Applicable Margins as on 18-09-2026

@@ -14,8 +14,10 @@ from datetime import date
 
 import pytest
 
-from mcxrv import calendar as cal
-from mcxrv import ingest, normalize, specs
+from mcxrv.stage1_intake import calendar as cal
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage1_intake import specs
 from mcxrv.sources.csv_dir import CSVDirectorySource
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "data",

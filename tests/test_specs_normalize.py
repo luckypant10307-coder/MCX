@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mcxrv import normalize, specs
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage1_intake import specs
 
 
 def test_quote_base_is_not_trading_unit():

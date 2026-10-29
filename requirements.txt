@@ -7,3 +7,6 @@ psycopg[binary]>=3.1
 # Optional. Absent, the carry fit falls back to weighted least squares and the
 # anomaly review queue is skipped; nothing else changes and nothing raises.
 scikit-learn>=1.3
+
+# Optional. Only `scripts/fetch_margins.py --backfill` needs it (reads the broker PDFs).
+# pypdf>=4.0
