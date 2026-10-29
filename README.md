@@ -2,7 +2,7 @@
 
 MCX lists four gold futures that are, underneath, the same metal: GOLDM (100 g),
 GOLDTEN (10 g), GOLDGUINEA (8 g coin) and GOLDPETAL (1 g). Their prices should move
-together once you put them on the same footing. This project checks every evening
+together once you put them on the same footing.  (trivial — force PR re-eval) This project checks every evening
 whether any pair has drifted apart more than usual, and tests whether trading those
 gaps would actually have made money.
 
