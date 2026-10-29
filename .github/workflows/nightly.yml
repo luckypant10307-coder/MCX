@@ -6,6 +6,8 @@ name: nightly snapshot
 #   3. notify: owner channels (ntfy / Telegram) and every registered user (Supabase:
 #      notification centre + web push), only for what changed
 #   4. rebuild the Render site, but only when a new session actually arrived
+#   5. timestamp what the monitor said in Bitcoin (OpenTimestamps) and keep the
+#      record and its proof on the `attestations` branch
 #
 # Twice per weekday: 00:15 IST after the MCX evening session, and 09:00 IST to pick up
 # a session the source published late. Messages only go out on a change, so a second
@@ -25,7 +27,9 @@ on:
         default: false
 
 permissions:
-  contents: read
+  # write: the job commits each session's timestamped record to the `attestations`
+  # branch. It never pushes to main.
+  contents: write
 
 concurrency:
   group: nightly
@@ -108,6 +112,30 @@ jobs:
           print(f"asof={asof}")
           EOF
           echo "before: ${{ steps.before.outputs.asof }}"
+
+      # A tamper-evident record of what the monitor said, timestamped in Bitcoin via
+      # OpenTimestamps. Kept on its own branch, one small file per session, so main
+      # stays code only. Earlier proofs still pending are upgraded on every run.
+      - name: Timestamp today's signals
+        if: env.SOURCE == 'csv'
+        continue-on-error: true          # a calendar outage must not fail the night
+        run: |
+          set -e
+          if git ls-remote --exit-code --heads origin attestations >/dev/null; then
+            git fetch -q origin attestations
+            git worktree add -q ../att FETCH_HEAD
+            git -C ../att checkout -q -B attestations
+          else
+            git worktree add -q --detach ../att
+            git -C ../att checkout -q --orphan attestations
+            git -C ../att rm -rqf .
+          fi
+          python scripts/attest.py --snapshot data/processed/snapshot.json --dir ../att/attestations
+          cd ../att
+          git add attestations
+          if git diff --cached --quiet; then echo "nothing new to record"; exit 0; fi
+          git -c user.name="github-actions[bot]"               -c user.email="41898282+github-actions[bot]@users.noreply.github.com"               commit -qm "Record session ${{ steps.after.outputs.asof }}"
+          git push -q origin attestations
 
       - name: Save bhavcopy archive
         if: always() && env.SOURCE == 'csv'
