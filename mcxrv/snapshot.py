@@ -287,6 +287,10 @@ def anomaly_review(result) -> dict:
         return {"available": False, "reason": "too few rows for the detector"}
     flagged = det[det["is_anomaly"]]
     top = an.top_reasons(det, n=ANOMALY_TOP)
+    # Every flag on the newest session, for the evening digest: the history-wide top
+    # list is dominated by old crash days and would hide what happened today.
+    latest_day = det["date"].max()
+    latest = flagged[(flagged["date"] == latest_day) & ~flagged["rule_flagged"]].sort_values("score")
     return clean({
         "available": True,
         "rows_scored": int(len(det)),
@@ -301,6 +305,9 @@ def anomaly_review(result) -> dict:
         "top": _records(top, ["date", "symbol", "contract_id", "score", "top_feature",
                               "top_z", "log_ret", "peer_dev_bp", "ret_in_ticks",
                               "d_log_volume"]),
+        "latest_session": latest_day,
+        "latest": _records(latest, ["date", "symbol", "contract_id", "score",
+                                    "top_feature", "top_z"]),
     })
 
 

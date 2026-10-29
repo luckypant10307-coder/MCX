@@ -121,6 +121,11 @@ def main(argv=None) -> int:
             print("notify: nothing changed, no message")
         for m in sent:
             report(m["event"], m)
+        summary = notify.digest(prev, snap)
+        if summary:
+            report("digest", notify.deliver(summary, kind="digest"))
+        else:
+            print("notify: nothing unusual to summarise for this session")
     return 0
 
 
