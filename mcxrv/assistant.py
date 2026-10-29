@@ -6,9 +6,9 @@ dashboard shows, and is told to answer only from what they return. It cannot cha
 anything, and it explains what the system says rather than advising a trade.
 
 Configuration (environment):
-  GEMINI_API_KEY      required. A Vertex AI express-mode key ("AQ...") or an AI
-                      Studio key ("AIza..."); the prefix picks the endpoint.
-  GEMINI_MODEL        default gemini-2.5-flash
+  GEMINI_API_KEY      required. An AI Studio key (aistudio.google.com/apikey).
+  GEMINI_USE_VERTEX   1 for a Vertex AI express key instead (needs billing on)
+  GEMINI_MODEL        default gemini-3.5-flash-lite
   CHAT_DAILY_LIMIT    questions per user per UTC day, default 40
 """
 from __future__ import annotations
@@ -17,7 +17,9 @@ import os
 import threading
 from datetime import datetime, timezone
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+# The light model: answers in a few seconds and stays available on the free tier when
+# the larger Flash models are overloaded.
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 MAX_QUESTION_CHARS = 1000
 MAX_HISTORY_TURNS = 10
 
@@ -110,7 +112,10 @@ def tools_for(snap: dict) -> list:
         m = dict(snap.get("published_margins") or {"available": False})
         hist = m.pop("history", None) or []
         if hist:
-            m["recent_history"] = hist[-40:]
+            # Highs and lows are computed here, not left to the model: picking a
+            # maximum out of a long list is where it misreads numbers.
+            m["extremes_by_year"] = _extremes(hist)
+            m["recent_history"] = hist[-15:]
         return m
 
     def get_circulars() -> dict:
@@ -127,6 +132,23 @@ def tools_for(snap: dict) -> list:
 
     return [get_overview, get_pairs, get_pair, get_decisions, get_backtest,
             get_account, get_margins, get_circulars, get_data_quality]
+
+
+def _extremes(history: list) -> dict:
+    """{year: {symbol: {"high_pct", "high_date", "low_pct", "low_date"}}} from daily rates."""
+    out: dict = {}
+    for row in history:
+        year = str(row.get("date", ""))[:4]
+        for sym, v in row.items():
+            if sym == "date" or not isinstance(v, (int, float)):
+                continue
+            e = out.setdefault(year, {}).setdefault(sym, {"high_pct": v, "high_date": row["date"],
+                                                          "low_pct": v, "low_date": row["date"]})
+            if v > e["high_pct"]:
+                e.update(high_pct=v, high_date=row["date"])
+            if v < e["low_pct"]:
+                e.update(low_pct=v, low_date=row["date"])
+    return out
 
 
 # ------------------------------------------------------------------ limits
@@ -165,9 +187,16 @@ def configured() -> bool:
 
 def _client():
     from google import genai
-    key = os.environ["GEMINI_API_KEY"]
-    # Vertex AI express-mode keys start "AQ."; AI Studio keys start "AIza".
-    return genai.Client(vertexai=not key.startswith("AIza"), api_key=key)
+    # AI Studio (Gemini Developer API) by default. Its keys now start "AQ." as well as
+    # "AIza", so the prefix cannot tell the endpoints apart; set GEMINI_USE_VERTEX=1 for
+    # a Vertex AI express key, which also needs billing on its Cloud project.
+    from google.genai import types
+    vertex = os.environ.get("GEMINI_USE_VERTEX", "").strip().lower() in ("1", "true", "yes")
+    # A person is waiting on the page: one try, at most 30 s, rather than retrying for
+    # minutes while the model is overloaded.
+    return genai.Client(vertexai=vertex, api_key=os.environ["GEMINI_API_KEY"],
+                        http_options=types.HttpOptions(
+                            timeout=30_000, retry_options=types.HttpRetryOptions(attempts=1)))
 
 
 def answer(question: str, history: list | None, snap: dict, client=None) -> dict:
@@ -232,8 +261,13 @@ def _explain(e: Exception) -> str:
     if "SERVICE_DISABLED" in s or "has not been used in project" in s:
         return ("The Gemini API is not enabled for this key's Google Cloud project. "
                 "Enable the Vertex AI (Agent Platform) API in the Google Cloud console.")
+    if "requires billing" in s or "BILLING" in s:
+        return ("Google needs billing turned on for this key's Cloud project before "
+                "Vertex AI will answer. Enable billing, or use a free AI Studio key (AIza...).")
     if "PERMISSION_DENIED" in s or "API_KEY_INVALID" in s or "401" in s:
         return "Google refused the API key. Check GEMINI_API_KEY."
+    if "UNAVAILABLE" in s or "DEADLINE_EXCEEDED" in s or "503" in s or "504" in s:
+        return "Gemini is busy right now. Try again in a minute."
     if "RESOURCE_EXHAUSTED" in s or "429" in s:
         return "The Gemini quota is used up for now. Try again in a minute."
     if "NOT_FOUND" in s or "404" in s:
