@@ -35,7 +35,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from . import margin as margin_mod
+from ..stage3_gates_decision import margin_capital as margin_mod
 
 
 @dataclass

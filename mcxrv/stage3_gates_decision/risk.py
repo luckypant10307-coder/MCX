@@ -39,8 +39,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from . import backtest as bt_mod
-from . import margin as margin_mod
+from ..stage4_simulate_deliver import replay_driver as bt_mod
+from . import margin_capital as margin_mod
 
 
 @dataclass

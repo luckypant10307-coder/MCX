@@ -29,7 +29,7 @@ from psycopg import sql
 
 from .config import DbConfig
 
-SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
+SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "canonical_schema.sql")
 
 
 # ---------------------------------------------------------------- connection
@@ -267,8 +267,8 @@ def _fetch_df(conn, query: str, params=None) -> pd.DataFrame:
 # -------------------------------------------------------- dimension and fact
 
 def upsert_contracts(conn, tidy: pd.DataFrame) -> int:
-    from .. import specs
-    from ..calendar import expiry_window_ok
+    from . import specs
+    from .calendar import expiry_window_ok
 
     g = (tidy.groupby(["contract_id", "symbol", "expiry_date"])
          .agg(first_seen=("date", "min"), last_seen=("date", "max"))
@@ -434,7 +434,7 @@ def write_anomalies(conn, det: pd.DataFrame) -> int:
         return 0
     import json
 
-    from .. import anomaly as anom
+    from . import anomaly as anom
     feats = [c for c in anom.FEATURES if c in det.columns]
     d = det.rename(columns={"date": "trade_date"}).copy()
     d["features"] = [

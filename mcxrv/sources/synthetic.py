@@ -46,7 +46,7 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from .. import specs
+from ..stage1_intake import specs
 from .base import RAW_COLUMNS, BhavcopySource
 
 # Structural log premium over a bar contract, in fine-gold terms, in basis
