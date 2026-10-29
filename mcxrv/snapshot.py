@@ -30,10 +30,15 @@ from datetime import date, datetime, timezone
 import numpy as np
 import pandas as pd
 
-from mcxrv import normalize, specs
+from mcxrv import costs, eventstudy, normalize, specs
 from mcxrv.signal import SignalConfig
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2          # 2: adds the full-history "research" section
+# Notional and half-spread behind the event study's cost line: the same assumption
+# scripts/run_analysis.py prints, so the dashboard and the written report agree.
+RESEARCH_NOTIONAL_INR = 500_000.0
+RESEARCH_HALF_SPREAD_BP = 5.0
+PREMIUM_EVERY_N_SESSIONS = 5
 HISTORY_SESSIONS = 250
 DECISION_LOG_SESSIONS = 120
 
@@ -127,6 +132,89 @@ def _verdict(perf: dict, warming_up: str | None = None) -> dict:
             "No edge survives costs: {:+.1f} bp gross becomes {:+.1f} bp net per trade"
             .format(gross or 0.0, net or 0.0))
     return {"headline": head, "edge_survives_costs": bool(ok)}
+
+
+# ---------------------------------------------------------------- research
+def research(result) -> dict:
+    """
+    The evidence behind the verdict, over the whole loaded history: does a wide spread
+    converge (event study), what does it cost to trade (sweep and breakeven), what is
+    structural rather than signal (premiums), and how much data stands behind it.
+
+    The monitoring views look at recent sessions; this section deliberately does not,
+    because a finding about whether an edge exists needs every session available.
+    """
+    q, pairs = result.quotes, result.pairs
+    perf = result.performance or {}
+    if q is None or q.empty:
+        return {}
+    dates = sorted(q["date"].unique())
+    out = {"window": {"start": dates[0], "end": dates[-1], "sessions": len(dates),
+                      "years": round((dates[-1] - dates[0]).days / 365.25, 2)}}
+
+    cov = []
+    for sym in specs.ALL_SYMBOLS:
+        g = q[q["symbol"] == sym]
+        if g.empty:
+            continue
+        cov.append({"symbol": sym, "first": g["date"].min(), "last": g["date"].max(),
+                    "sessions": int(g["date"].nunique()),
+                    "contracts": int(g["contract_id"].nunique()),
+                    "untradeable_rows": int(g["settle_untradeable"].sum())
+                    if "settle_untradeable" in g.columns else None})
+    out["coverage"] = cov
+
+    ccfg = costs.CostConfig(half_spread_bp_override=result.config.half_spread_bp)
+    rt = costs.round_trip_bp(RESEARCH_NOTIONAL_INR, RESEARCH_HALF_SPREAD_BP,
+                             RESEARCH_HALF_SPREAD_BP, ccfg)["total_bp"]
+    if pairs is not None and not pairs.empty:
+        es = eventstudy.study(pairs)
+        if not es.empty:
+            hurdle = eventstudy.cost_hurdle_table(es, rt)
+            out["event_study"] = {
+                "round_trip_bp": rt, "half_spread_bp": RESEARCH_HALF_SPREAD_BP,
+                "rows": _records(hurdle, ["z_band", "horizon", "n", "mean_conv_bp",
+                                          "hit_rate", "t_newey_west", "boot_ci_lo",
+                                          "boot_ci_hi", "net_conv_bp",
+                                          "ci_clears_costs"])}
+
+    gross = perf.get("mean_gross_bp")
+    be = (costs.breakeven_half_spread_bp(gross, RESEARCH_NOTIONAL_INR, ccfg)
+          if gross is not None and np.isfinite(gross) and gross > 0 else 0.0)
+    out["costs"] = {
+        "notional_per_leg_inr": RESEARCH_NOTIONAL_INR,
+        "sweep": _records(costs.cost_summary_table(RESEARCH_NOTIONAL_INR, ccfg),
+                          ["half_spread_bp_per_leg", "statutory_bp", "execution_bp",
+                           "round_trip_bp"]),
+        "gross_bp": gross, "net_bp": perf.get("mean_net_bp"),
+        "breakeven_half_spread_bp": be,
+    }
+
+    prem = result.premiums
+    if prem is not None and not prem.empty:
+        keep = set(sorted(prem["date"].unique())[::PREMIUM_EVERY_N_SESSIONS]
+                   + [prem["date"].max()])
+        out["premiums"] = _records(prem[prem["date"].isin(keep)].sort_values("date"),
+                                   ["date", "symbol", "premium_bp"])
+
+    t = result.trades
+    if t is not None and not t.empty:
+        t = t.assign(year=pd.to_datetime(t["entry_date"]).dt.year)
+
+        def _agg(g):
+            return {"n": int(len(g)), "gross_bp": float(g["gross_bp"].mean()),
+                    "net_bp": float(g["net_bp"].mean()),
+                    "hit_rate_net": float((g["net_bp"] > 0).mean()),
+                    "net_pnl": float(g["net_pnl"].sum())}
+        out["by_year"] = [{"year": int(y), **_agg(g)} for y, g in t.groupby("year")]
+        out["by_pair"] = sorted(({"pair": p, **_agg(g)} for p, g in t.groupby("pair")),
+                                key=lambda r: -r["n"])
+        out["exit_reasons"] = {str(k): int(v) for k, v in
+                               t["exit_reason"].value_counts().items()}
+    bd = result.bt_daily
+    if bd is not None and not bd.empty and "equity" in bd.columns:
+        out["equity"] = _records(bd, ["date", "equity"])
+    return clean(out)
 
 
 # ---------------------------------------------------------------- build
@@ -294,7 +382,10 @@ def build(result, generated_at: datetime | None = None) -> dict:
         "meta": {
             "asof": asof, "generated_at": generated_at,
             "source": cfg.source, "null_world": cfg.null_world,
-            "start": cfg.start, "end": cfg.end,
+            # The range actually loaded, not the range requested: a CSV directory
+            # run asks for "everything" and should report what that turned out to be.
+            "start": q["date"].min() if q is not None and not q.empty else cfg.start,
+            "end": q["date"].max() if q is not None and not q.empty else cfg.end,
             "data_fingerprint": fingerprint(q),
             "run_id": fingerprint(q)[:12],
             "sessions": n_sessions, "z_entry": z_entry,
@@ -320,6 +411,7 @@ def build(result, generated_at: datetime | None = None) -> dict:
                          warming_up=latest_pairs[0]["reason"].split(": ", 1)[1]
                          if latest_pairs and counts["WARMUP"] == len(latest_pairs)
                          else None)},
+        "research": research(result),
     }
     return clean(snap)
 
