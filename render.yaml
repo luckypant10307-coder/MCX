@@ -15,3 +15,19 @@ services:
     envVars:
       - key: CORS_ORIGINS
         value: "*"
+      # Accounts and notifications. "sync: false" = set the value in the Render
+      # dashboard (Environment tab); it is never stored in this file.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: TINYFISH_API_KEY
+        sync: false

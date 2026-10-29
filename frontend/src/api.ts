@@ -4,8 +4,19 @@ import { useQuery } from "@tanstack/react-query";
 
 const BASE = (new URLSearchParams(location.search).get("api") || import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 
+// Set by the auth provider once a user signs in; every API call then carries the token.
+let tokenGetter: () => Promise<string | null> = async () => null;
+export const setTokenGetter = (fn: () => Promise<string | null>) => { tokenGetter = fn; };
+
+export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = await tokenGetter();
+  const headers = new Headers(init.headers);
+  if (token) headers.set("Authorization", "Bearer " + token);
+  return fetch(BASE + path, { ...init, headers });
+}
+
 async function get<T>(path: string): Promise<T> {
-  const r = await fetch(BASE + path);
+  const r = await authedFetch(path);
   if (!r.ok) {
     const detail = await r.json().then((j) => j.detail).catch(() => null);
     throw new Error(detail || `${r.status} ${r.statusText}`);
