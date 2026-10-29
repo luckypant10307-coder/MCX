@@ -13,9 +13,16 @@ from datetime import date
 
 import pandas as pd
 
-from mcxrv import backtest, carry, costs, ingest, liquidity, margin, normalize, risk
-from mcxrv import signal as sig_mod
-from mcxrv import specs
+from mcxrv.stage4_simulate_deliver import replay_driver as backtest
+from mcxrv.stage2_normalize_signal import half_life as carry
+from mcxrv.stage3_gates_decision import liquidity_cost as costs
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage2_normalize_signal import pair_match as liquidity
+from mcxrv.stage3_gates_decision import margin_capital as margin
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage3_gates_decision import risk
+from mcxrv.stage2_normalize_signal import z_score as sig_mod
+from mcxrv.stage1_intake import specs
 
 
 @dataclass
@@ -35,6 +42,10 @@ class PipelineConfig:
     # Folder of validated MCXCCL risk files (risk_inbox). Their scan ranges replace
     # the estimated ones for exactly the dates they cover, and nowhere else.
     risk_dir: str | None = None
+    # Published outright margin rates (published_margins). Below the MCXCCL files,
+    # above the volatility estimate: a broker sheet states the rate actually charged,
+    # but not the spread credits a risk file carries.
+    margins_file: str | None = None
 
 
 @dataclass
@@ -118,8 +129,20 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
           margin.SpanParameters(price_scan_range_pct=margin.derive_scan_range(rows)))
     msched = margin.volatility_schedule(rows)
     span_source = str(sp.source)
+    if cfg.margins_file:
+        from mcxrv import published_margins
+        rated = published_margins.schedule(published_margins.load(cfg.margins_file),
+                                           rows["date"].unique(), sp.elm_for, sp.additional_for)
+        if rated:
+            msched = {**msched, **rated}
+            n_rated = len({d for d, _s in rated})
+            n_all = len({d for d, _s in msched})
+            span_source = ("published broker margin rates on {} of {} session(s), "
+                           "estimated from volatility on the rest; spread credit "
+                           "assumed".format(n_rated, n_all))
     if cfg.risk_dir:
-        from mcxrv import risk_inbox, spanfile
+        from mcxrv import risk_inbox
+        from mcxrv.stage3_gates_decision import spanfile
         files = risk_inbox.accepted_files(cfg.risk_dir)
         published = spanfile.schedule_from_files(files)
         if published:

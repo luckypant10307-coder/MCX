@@ -15,9 +15,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from mcxrv import (backtest, carry, costs, ingest, ledger, liquidity, margin,
-                   normalize)
-from mcxrv import signal as sig_mod
+from mcxrv.stage4_simulate_deliver import replay_driver as backtest
+from mcxrv.stage2_normalize_signal import half_life as carry
+from mcxrv.stage3_gates_decision import liquidity_cost as costs
+from mcxrv.stage1_intake import validation as ingest
+from mcxrv.stage4_simulate_deliver import position_ledger as ledger
+from mcxrv.stage2_normalize_signal import pair_match as liquidity
+from mcxrv.stage3_gates_decision import margin_capital as margin
+from mcxrv.stage2_normalize_signal import normalize
+from mcxrv.stage2_normalize_signal import z_score as sig_mod
 from mcxrv.sources.synthetic import SyntheticConfig, SyntheticSource
 
 START, END = date(2022, 1, 1), date(2025, 12, 31)

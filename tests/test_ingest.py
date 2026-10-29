@@ -6,8 +6,8 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from mcxrv import calendar as cal
-from mcxrv import ingest
+from mcxrv.stage1_intake import calendar as cal
+from mcxrv.stage1_intake import validation as ingest
 from mcxrv.sources.synthetic import SyntheticConfig, SyntheticSource
 
 

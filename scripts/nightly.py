@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mcxrv import circulars, notify, pipeline, risk_inbox, snapshot, user_notify  # noqa: E402
+from mcxrv import circulars, notify, pipeline, published_margins, risk_inbox, snapshot, user_notify  # noqa: E402
 from mcxrv.stage1_intake.config import load_dotenv  # noqa: E402
 
 
@@ -43,6 +43,10 @@ def parse_args(argv=None):
     p.add_argument("--no-notify", action="store_true")
     p.add_argument("--risk-dir", default="data/risk",
                    help="drop folder for MCXCCL risk files (inbox/ accepted/ rejected/)")
+    p.add_argument("--margins-file", default=published_margins.DEFAULT_PATH,
+                   help="published margin rates (scripts/fetch_margins.py); '' to ignore")
+    p.add_argument("--no-margins-fetch", action="store_true",
+                   help="use the stored rates without reading today's Zerodha page")
     p.add_argument("--no-circulars", action="store_true",
                    help="skip the TinyFish search for new MCX circulars")
     return p.parse_args(argv)
@@ -70,16 +74,41 @@ def main(argv=None) -> int:
     for d in inbox:
         print("risk file {}: {}{}".format(d["file"], d["status"],
                                           "" if d["status"] == "ACCEPTED" else " - " + d["reason"]))
+    # 2. Today's published margin rates. Real data only: synthetic sessions are
+    # invented dates, and a real rate on them would be meaningless.
+    real = a.source != "synthetic" and bool(a.margins_file)
+    margin_changes = []
+    if real and not a.no_margins_fetch:
+        store = published_margins.load(a.margins_file)
+        try:
+            sheet = published_margins.fetch_zerodha()
+            seen = store.get(sheet["date"].isoformat())
+            if published_margins.add(store, sheet, "zerodha"):
+                published_margins.save(store, a.margins_file)
+                # The page's prices move between the two daily runs; only new RATES
+                # are news, so a re-read of the same day never alerts twice.
+                if seen is None or (published_margins.symbol_rates(seen)
+                                    != published_margins.symbol_rates(sheet)):
+                    margin_changes = published_margins.latest_change(store)
+            print("margins {}: {}".format(sheet["date"], ", ".join(
+                "{} {:.2f}%".format(s, r * 100)
+                for s, r in sorted(published_margins.symbol_rates(sheet).items()))))
+        except Exception as e:              # the page can change; the run must not stop
+            print("margins: today's rates not read ({}); using stored ones".format(e))
     cfg = pipeline.PipelineConfig(source=a.source, start=start, end=end,
                                   csv_dir=a.csv_dir, seed=a.seed, z_entry=a.z_entry,
-                                  account_capital=a.account_capital, risk_dir=a.risk_dir)
+                                  account_capital=a.account_capital, risk_dir=a.risk_dir,
+                                  margins_file=a.margins_file if real else None)
     t0 = time.time()
     result = pipeline.run(cfg)
     archive = snapshot.archive_log(a.csv_dir) if a.source == "csv" else None
     snap = snapshot.build(result, archive=archive)
     sessions = sorted(result.quotes["date"].unique()) if result.quotes is not None and not result.quotes.empty else []
     snap["risk_files"] = snapshot.clean(risk_inbox.status(a.risk_dir, sessions))
-    # 2. New MCX circulars, via TinyFish search (skipped without TINYFISH_API_KEY).
+    snap["published_margins"] = snapshot.clean(
+        published_margins.status(published_margins.load(a.margins_file), sessions) if real
+        else {"available": False, "days": 0, "reason": "sample data: published rates not applied"})
+    # 3. New MCX circulars, via TinyFish search (skipped without TINYFISH_API_KEY).
     circ = ({"available": False, "reason": "skipped (--no-circulars)"} if a.no_circulars else
             circulars.check(seen_path=os.path.join(os.path.dirname(a.out) or ".", "circulars_seen.json")))
     snap["circulars"] = snapshot.clean(circ)
@@ -116,6 +145,11 @@ def main(argv=None) -> int:
         text = circulars.message(circ)
         if text:
             report("circulars", notify.deliver(text, kind="circulars"))
+        mtext = published_margins.message(margin_changes)
+        if mtext:
+            report("margin_changed", notify.deliver(mtext, kind="margin_changed"))
+            # Users hear about it under "exchange notices", with the circulars.
+            text = "\n\n".join(t for t in (text, mtext) if t)
         sent = notify.notify(prev, snap)
         if not sent:
             print("notify: nothing changed, no message")

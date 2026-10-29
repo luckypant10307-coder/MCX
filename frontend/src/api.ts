@@ -125,7 +125,16 @@ export interface RiskFiles {
 }
 export interface Circular { title: string | null; url: string; site?: string | null; snippet?: string | null; date?: string | null; topics: string[]; new: boolean }
 export interface Circulars { available: boolean; reason?: string; checked_at?: string; items?: Circular[]; new?: number; errors?: string[] }
+export interface MarginContract { symbol: string; expiry: string; total_pct: number; margin_inr?: number; price?: number;
+  initial_pct?: number; additional_pct?: number; elm_pct?: number; tender_pct?: number; delivery_pct?: number }
+export interface MarginChange { symbol: string; from_pct: number; to_pct: number; from_date: string; to_date: string }
+export interface PublishedMargins {
+  available: boolean; reason?: string; days: number; first?: string; last?: string; last_source?: string;
+  latest?: Record<string, number>; contracts?: MarginContract[]; sources?: string[]; changes?: MarginChange[]; note?: string;
+  history?: ({ date: string } & Record<string, number | string>)[];
+}
 export const useRiskFiles = q<RiskFiles>("/api/risk-files");
+export const useMargins = q<PublishedMargins>("/api/margins");
 export const useCirculars = q<Circulars>("/api/circulars");
 export const useDecisions = () => useQuery({ queryKey: ["decisions"], queryFn: () => get<Decisions>("/api/decisions?limit=300") });
 export const usePair = (id: string) => useQuery({ queryKey: ["pair", id], queryFn: () => get<PairDetail>("/api/pairs/" + encodeURIComponent(id)) });
