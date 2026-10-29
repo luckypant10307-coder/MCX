@@ -63,7 +63,7 @@ class _Resp:
 class _DB:
     """Stands in for Supabase's REST API: two users, one device each, one gone."""
     def __init__(self, prefs):
-        self.prefs, self.inserted, self.deleted = prefs, [], []
+        self.prefs, self.inserted, self.deleted, self.patched = prefs, [], [], []
         self.subs = [{"id": 1, "user_id": "a", "endpoint": "https://push/a", "p256dh": "k", "auth": "s"},
                      {"id": 2, "user_id": "b", "endpoint": "https://push/b-gone", "p256dh": "k", "auth": "s"}]
 
@@ -76,6 +76,10 @@ class _DB:
 
     def delete(self, url, params=None, headers=None, timeout=None):
         self.deleted.append(params)
+        return _Resp(None, 204)
+
+    def patch(self, url, params=None, json=None, headers=None, timeout=None):
+        self.patched.append((params, json))
         return _Resp(None, 204)
 
 
@@ -100,6 +104,8 @@ def test_each_user_gets_only_what_they_asked_for(configured):
     # a: alert yes, digest off. b: follows another pair, so no alert; digest yes.
     assert got == {("a", "new_alert"), ("b", "digest")}
     assert out["notifications"] == 2 and out["pushed"] == 1
+    # the device that took the push is marked; the one that is gone is not
+    assert [p for p, _v in db.patched] == [{"id": "eq.1"}] and "last_ok_at" in db.patched[0][1]
 
 
 def test_a_device_the_push_service_says_is_gone_is_removed(configured):
