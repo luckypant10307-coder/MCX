@@ -195,6 +195,9 @@ tr.go:hover td { background: rgba(127, 140, 160, 0.08); }
 .tooltip .r { display: flex; gap: 8px; align-items: center; } .tooltip .r b { font-variant-numeric: tabular-nums; }
 .tooltip .r i { width: 12px; height: 0; border-top: 2.5px solid; }
 .empty { color: var(--muted); }
+.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+a b { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+a:hover b { color: var(--gold); }
 .err { border-radius: var(--radius); box-shadow: var(--inset); padding: 20px 22px; color: var(--bad); }
 .skeleton { height: 120px; border-radius: var(--radius); box-shadow: var(--inset); opacity: .6; }
 details summary { cursor: pointer; color: var(--ink-2); font-size: 13px; width: fit-content; }
