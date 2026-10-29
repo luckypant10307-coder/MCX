@@ -12,6 +12,10 @@ the average trade made +17.5 bp before costs and **−5.3 bp after costs**.
 
 Live dashboard: <https://mcx-iefc.onrender.com> (sign-in required).
 
+**For reviewers:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the tech stack, the
+full architecture, the engine stages, the nightly workflow, the data model and the
+notification and assistant flows, as diagrams with explanations.
+
 > Built with AI assistance (Claude). The design decisions, checks and conclusions
 > are described below and in [docs/DETAILS.md](docs/DETAILS.md).
 
