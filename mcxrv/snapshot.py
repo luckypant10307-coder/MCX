@@ -134,6 +134,129 @@ def _verdict(perf: dict, warming_up: str | None = None) -> dict:
     return {"headline": head, "edge_survives_costs": bool(ok)}
 
 
+# ---------------------------------------------------------------- monitoring detail
+LIQ_AVG_SESSIONS = 20
+
+
+def liquidity_level(symbol: str, avg_lots: float | None) -> str | None:
+    """
+    GREEN at >= 2x the symbol's minimum daily volume, YELLOW at >= 1x, RED below.
+    The minimum is the same threshold the tradability gate uses (pair_match), so the
+    colour and the gate cannot disagree.
+    """
+    from mcxrv.liquidity import LiquidityConfig
+    if avg_lots is None or not np.isfinite(avg_lots):
+        return None
+    floor = LiquidityConfig().min_volume_lots.get(symbol, 10.0)
+    return "GREEN" if avg_lots >= 2 * floor else "YELLOW" if avg_lots >= floor else "RED"
+
+
+def suggested_trade(p: dict, legs: dict) -> dict | None:
+    """
+    Which side of each leg the pair would trade, with lots and fine grams.
+
+    direction is set by the engine only when every gate passes; for a pair that is
+    unusual but blocked, the side follows the sign of z so the reader can see what
+    WOULD have been traded. Spread too high (z > 0): sell a, buy b.
+    """
+    risk = p.get("risk") or {}
+    z = p.get("z")
+    d = p.get("direction") or (0 if z is None else (-1 if z > 0 else 1))
+    if not d:
+        return None
+    a, b = p["sym_a"], p["sym_b"]
+    buy, sell = (a, b) if d > 0 else (b, a)
+    lots = {a: risk.get("lots_a"), b: risk.get("lots_b")}
+
+    def leg(sym, side):
+        n = lots.get(sym)
+        fg = specs.get(sym).fine_g_per_lot
+        return {"side": side, "symbol": sym, "expiry": (legs.get(sym) or {}).get("expiry_date"),
+                "lots": n, "fine_g": None if n is None else n * fg}
+    return {"legs": [leg(sell, "SELL"), leg(buy, "BUY")],
+            "residual_frac": risk.get("residual_frac"),
+            "margin": risk.get("marginal_margin")}
+
+
+def archive_log(csv_dir: str, show: int = 30) -> dict:
+    """
+    Every downloaded bhavcopy file: the date it was requested for (from its name),
+    the date written inside it, gold futures rows, SHA-256 of the bytes as stored,
+    and LOADED / REJECTED-DATE. A file whose inside date differs from its name is
+    MCX answering a different day -- the date echo the validator also flags per row.
+    """
+    import hashlib as _h
+    from mcxrv.ingest import parse_response_date
+    from mcxrv.sources.csv_dir import CSVDirectorySource
+    src = CSVDirectorySource(csv_dir)
+    files = src._files()
+    out, rejected = [], 0
+    for path in files:
+        hint = src._date_hint(path)
+        df = src._read_one(path)
+        inside, gold = None, 0
+        if not df.empty:
+            m = src._map_columns(df)
+            if m["Date"] is not None and len(m):
+                inside = parse_response_date(m["Date"].iloc[0], requested=hint)[0]
+            sym = m["Symbol"].astype(str).str.strip().str.upper() if m["Symbol"] is not None else None
+            if sym is not None:
+                ok = sym.isin(specs.ALL_SYMBOLS)
+                if "Instrument" in m.columns and m["Instrument"].notna().any():
+                    ok &= m["Instrument"].astype(str).str.strip().str.upper().isin(
+                        ("FUTCOM", "FUTIDX", "", "NONE", "NAN"))
+                gold = int(ok.sum())
+        status = "LOADED" if inside is not None and (hint is None or inside == hint) \
+            else "REJECTED_DATE" if inside is not None else "UNREADABLE"
+        rejected += status != "LOADED"
+        out.append({"file": os.path.basename(path), "requested": hint, "returned": inside,
+                    "gold_rows": gold, "status": status, "path": path})
+    out.sort(key=lambda r: (str(r["requested"] or ""), r["file"]), reverse=True)
+    for r in out[:show]:
+        with open(r["path"], "rb") as fh:
+            r["sha256"] = _h.sha256(fh.read()).hexdigest()
+        r["saved_at"] = datetime.fromtimestamp(os.path.getmtime(r["path"]), timezone.utc)
+    rows = [{k: v for k, v in r.items() if k != "path"} for r in out[:show]]
+    return clean({"files": len(out), "rejected": rejected, "rows": rows,
+                  "source_dir": csv_dir})
+
+
+def engine_parameters(result) -> list[dict]:
+    """The settings the run actually used, each with what it does. Read-only."""
+    from mcxrv.backtest import BacktestConfig
+    from mcxrv.carry import CarryConfig
+    sc, bc, cc = SignalConfig(z_entry=result.config.z_entry), BacktestConfig(), CarryConfig()
+    return [
+        {"group": "Signal", "name": "Unusual if |z| ≥", "value": sc.z_entry, "unit": "",
+         "what": "How far the spread must sit from its trailing centre, in robust standard deviations."},
+        {"group": "Signal", "name": "Minimum dislocation", "value": sc.min_abs_bp, "unit": "bp",
+         "what": "Gaps smaller than this are tick noise, whatever the z-score says."},
+        {"group": "Signal", "name": "Trailing window", "value": sc.lookback, "unit": "sessions",
+         "what": "History used for the centre, scale, stationarity test and half-life."},
+        {"group": "Signal", "name": "Minimum history", "value": sc.min_history, "unit": "sessions",
+         "what": "A pair is not scored at all before this much history exists."},
+        {"group": "Signal", "name": "Maximum half-life", "value": sc.max_halflife_sessions, "unit": "sessions",
+         "what": "Spreads that revert slower than this cannot converge inside a contract's life."},
+        {"group": "Model", "name": "Premium window", "value": cc.window_days, "unit": "sessions",
+         "what": "Trailing sessions used to estimate each coin's premium, refit every "
+                 "{} sessions.".format(cc.refit_every)},
+        {"group": "Trading", "name": "Exit when |z| ≤", "value": bc.exit_z, "unit": "",
+         "what": "The spread has converged; close both legs."},
+        {"group": "Trading", "name": "Stop when |z| ≥", "value": bc.stop_z, "unit": "",
+         "what": "The spread kept widening; close rather than hope."},
+        {"group": "Trading", "name": "Enter only with", "value": bc.min_sessions_to_expiry_entry,
+         "unit": "sessions left", "what": "Leaves room to converge before the nearer leg expires."},
+        {"group": "Trading", "name": "Force exit at", "value": bc.min_sessions_to_expiry_exit,
+         "unit": "sessions left", "what": "Nothing is ever held into the tender period."},
+        {"group": "Trading", "name": "Maximum holding", "value": bc.max_holding_sessions, "unit": "sessions",
+         "what": "A trade still open after this long is closed."},
+        {"group": "Capital", "name": "Account capital", "value": result.config.account_capital, "unit": "₹",
+         "what": "Cash available for margin and daily mark-to-market."},
+        {"group": "Capital", "name": "Notional per leg", "value": bc.target_notional_per_leg, "unit": "₹",
+         "what": "Target size of each leg before rounding to whole lots."},
+    ]
+
+
 # ---------------------------------------------------------------- research
 def research(result) -> dict:
     """
@@ -218,7 +341,7 @@ def research(result) -> dict:
 
 
 # ---------------------------------------------------------------- build
-def build(result, generated_at: datetime | None = None) -> dict:
+def build(result, generated_at: datetime | None = None, archive: dict | None = None) -> dict:
     """PipelineResult -> snapshot dict."""
     cfg = result.config
     z_entry = float(cfg.z_entry)
@@ -228,6 +351,7 @@ def build(result, generated_at: datetime | None = None) -> dict:
 
     # contracts on the latest session, front month per symbol
     contracts = []
+    liq, avg_vol = {}, {}
     if q is not None and not q.empty:
         last = q[q["date"] == q["date"].max()]
         fm = normalize.front_month(last)
@@ -235,9 +359,13 @@ def build(result, generated_at: datetime | None = None) -> dict:
         if result.rows is not None and not result.rows.empty:
             lr = result.rows[result.rows["date"] == result.rows["date"].max()]
             liq = lr.set_index("contract_id")[["tradable", "half_spread_bp"]].to_dict("index")
+        recent = set(sorted(q["date"].unique())[-LIQ_AVG_SESSIONS:])
+        avg_vol = (q[q["date"].isin(recent)].groupby("contract_id")["volume"].mean()
+                   .to_dict())
         for r in fm.to_dict("records"):
             sp = specs.get(r["symbol"])
             extra = liq.get(r["contract_id"], {})
+            av = avg_vol.get(r["contract_id"])
             contracts.append(clean({
                 "symbol": r["symbol"], "contract_id": r["contract_id"],
                 "expiry_date": r.get("expiry_date"), "close": r.get("close"),
@@ -249,7 +377,11 @@ def build(result, generated_at: datetime | None = None) -> dict:
                 "sessions_to_expiry": r.get("sessions_to_expiry"),
                 "tradable": extra.get("tradable"),
                 "half_spread_bp": extra.get("half_spread_bp"),
+                "fine_g_per_lot": sp.fine_g_per_lot,
+                "avg_volume_20": av,
+                "liquidity": liquidity_level(r["symbol"], av),
             }))
+    legs = {c["symbol"]: c for c in contracts}
 
     # latest pair decisions
     brd = {}
@@ -274,7 +406,8 @@ def build(result, generated_at: datetime | None = None) -> dict:
                 **d,
                 "risk": None if b is None else {
                     k: b.get(k) for k in (
-                        "action", "reason", "lots_a", "lots_b", "notional_exposure",
+                        "action", "reason", "contract_a", "contract_b", "sessions_a",
+                        "sessions_b", "lots_a", "lots_b", "notional_exposure",
                         "marginal_margin", "initial_margin", "span_margin", "elm",
                         "delivery_margin", "floor_binds", "utilisation_if_added",
                         "buffer_state", "span_change_pct", "sessions_to_expiry",
@@ -310,6 +443,44 @@ def build(result, generated_at: datetime | None = None) -> dict:
                 }))
     order = {"ALERT": 0, "NO_TRADE": 1, "QUIET": 2, "WARMUP": 3}
     latest_pairs.sort(key=lambda p: (order[p["status"]], -abs(p["z"] or 0)))
+
+    # What a reader needs beside the numbers: which contracts, how far apart their
+    # expiries are, what would be traded, and the exact message the bot would send.
+    from mcxrv import notify as _notify
+    meta_for_msg = {"asof": asof, "sample_data": cfg.source == "synthetic",
+                    "run_id": fingerprint(q)[:12] if q is not None and not q.empty else ""}
+    for p in latest_pairs:
+        # Legs are the contracts the risk board priced (enough runway to enter), which
+        # near expiry is the next month, not the front month on the Overview page.
+        risk_now = p.get("risk") or {}
+        pair_legs = {}
+        for sym, cid_key, s_key in ((p["sym_a"], "contract_a", "sessions_a"),
+                                    (p["sym_b"], "contract_b", "sessions_b")):
+            cid = risk_now.get(cid_key)
+            if cid:
+                av = avg_vol.get(cid)
+                lrow = liq.get(cid, {})
+                pair_legs[sym] = {"symbol": sym, "contract_id": cid,
+                                  "expiry_date": cid.split("|", 1)[1],
+                                  "sessions_to_expiry": risk_now.get(s_key),
+                                  "avg_volume_20": av, "liquidity": liquidity_level(sym, av),
+                                  "tradable": lrow.get("tradable"), "front_month": False}
+            else:
+                front = legs.get(sym) or {"symbol": sym}
+                pair_legs[sym] = {**{k: front.get(k) for k in (
+                    "symbol", "contract_id", "expiry_date", "sessions_to_expiry",
+                    "avg_volume_20", "liquidity", "tradable")}, "front_month": True}
+        la, lb = pair_legs[p["sym_a"]], pair_legs[p["sym_b"]]
+        p["legs"] = [clean(la), clean(lb)]
+        try:
+            p["expiry_gap_days"] = abs((pd.Timestamp(la["expiry_date"]) -
+                                        pd.Timestamp(lb["expiry_date"])).days)
+        except (TypeError, KeyError, ValueError):
+            p["expiry_gap_days"] = None
+        p["trade"] = (clean(suggested_trade(p, pair_legs))
+                      if p["status"] in ("ALERT", "NO_TRADE") else None)
+        p["telegram"] = (_notify.format_message({"kind": "new_alert", "pair_state": p}, meta_for_msg)
+                         if p["status"] == "ALERT" else None)
 
     # pair history for charts
     history = {}
@@ -412,7 +583,12 @@ def build(result, generated_at: datetime | None = None) -> dict:
                          if latest_pairs and counts["WARMUP"] == len(latest_pairs)
                          else None)},
         "research": research(result),
+        "archive": archive,
+        "parameters": engine_parameters(result),
     }
+    snap["meta"]["decision_window_sessions"] = (
+        min(DECISION_LOG_SESSIONS, int(pairs["date"].nunique()))
+        if pairs is not None and not pairs.empty else 0)
     return clean(snap)
 
 

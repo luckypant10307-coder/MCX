@@ -130,7 +130,11 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
         asof = max(pairs["date"])
         book = risk.open_book_from_trades(rows, trades, asof)
         board = risk.board(rows, pairs,
-                           risk.RiskBoardConfig(account_capital=cfg.account_capital),
+                           # Same runway rule the backtest enters with, so a live
+                           # alert never proposes a trade the backtest would refuse.
+                           risk.RiskBoardConfig(
+                               account_capital=cfg.account_capital,
+                               min_sessions_to_expiry=bcfg.min_sessions_to_expiry_entry),
                            span_params=sp, margin_schedule=msched,
                            bt_cfg=bcfg, open_book=book)
 
