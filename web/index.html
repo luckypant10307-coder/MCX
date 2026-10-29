@@ -2,261 +2,533 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gold Spread Monitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MCX Gold Relative Value</title>
 <style>
-:root{--side:#111827;--side2:#1F2937;--bg:#F5F6F8;--card:#fff;--ink:#111827;--muted:#6B7280;--line:#E5E7EB;
- --gold:#D97A1E;--gold-t:#A4500B;--gold-bg:#FDF3E6;--green:#15803D;--green-bg:#ECFDF3;--red:#B91C1C;--red-bg:#FEF2F2;
- --amber:#B45309;--amber-bg:#FFFBEB;--blue:#2E6DA4;--blue-bg:#EAF2FB;--slate:#475569;--slate-bg:#F1F5F9}
-*{box-sizing:border-box}html,body{margin:0;height:100%}
-body{font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;display:flex}
-aside{width:236px;background:var(--side);color:#E5E7EB;display:flex;flex-direction:column;padding:20px 14px;flex-shrink:0}
-.brand{display:flex;gap:10px;align-items:center;padding:0 6px 20px;border-bottom:1px solid #374151;margin-bottom:12px}
-.brand .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#F2C14E,#D97A1E);display:grid;place-items:center;color:#111;font-weight:900}
-.brand b{display:block;font-size:16px}.brand small{color:#9CA3AF;font-size:12px}
-nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#D1D5DB;text-decoration:none;margin-bottom:3px;cursor:pointer}
-nav a:hover{background:var(--side2)}nav a.on{background:#2B3445;color:#fff;font-weight:600}
-nav .cnt{margin-left:auto;background:var(--gold);color:#fff;font-size:12px;font-weight:700;border-radius:10px;padding:1px 8px}
-.foot{margin-top:auto;font-size:12px;color:#9CA3AF;padding:10px 6px;line-height:1.5;border-top:1px solid #374151}
-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
-header{min-height:60px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 24px;gap:14px;flex-wrap:wrap}
-header h1{font-size:19px;margin:0}
-.hr{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:13px;color:var(--muted)}
-.pill{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px}
-#view{flex:1;overflow:auto;padding:22px 24px 40px}
-.grid{display:grid;gap:16px}.k4{grid-template-columns:repeat(4,minmax(0,1fr))}.k2{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
-@media (max-width:1100px){.k4{grid-template-columns:repeat(2,minmax(0,1fr))}.k2{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0}
-.card h3{margin:0 0 10px;font-size:15px}.card h3 small{color:var(--muted);font-weight:500;margin-left:6px}
-.kpi .l{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.kpi .v{font-size:28px;font-weight:800;margin:6px 0 2px}.kpi .s{font-size:13px;color:var(--muted)}
-.tw{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{text-align:left;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
-tr.click{cursor:pointer}tr.click:hover td{background:#FAFAF5}
-.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.chip{display:inline-block;font-size:11.5px;font-weight:800;border-radius:6px;padding:3px 8px;letter-spacing:.3px;white-space:nowrap}
-.s-ALERT,.s-TRADED{background:var(--green-bg);color:var(--green)}.s-NO_TRADE{background:var(--amber-bg);color:var(--amber)}
-.s-QUIET{background:var(--slate-bg);color:var(--slate)}.s-WARMUP{background:#F3F4F6;color:#6B7280;border:1px dashed #9CA3AF}.s-SIGNAL{background:var(--blue-bg);color:var(--blue)}
-.ok{color:var(--green)}.bad{color:var(--red)}.muted{color:var(--muted)}
-.banner{border-radius:10px;padding:11px 15px;font-size:14px;margin-bottom:14px}
-.gate{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
-.gate:last-child{border:0}.gi{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;font-size:13px;flex-shrink:0}
-.err{padding:30px;color:var(--red)}
-.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
-.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-size:13px}
-.tip{position:fixed;pointer-events:none;background:#111827;color:#fff;font-size:13px;border-radius:8px;padding:8px 11px;line-height:1.45;display:none;z-index:9}
+/* Layout: findings first, monitoring second. One column of evidence, each chart answering one question. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --raised: #ffffff;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --accent: #b7791f; --accent-soft: #f6ecd9;
+  /* categorical (premium lines): reference slots 1-3, validated all-pairs */
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  /* ordinal |z| bands: one blue hue, light -> dark, validated --ordinal */
+  --o1: #86b6ef; --o2: #5598e7; --o3: #256abf; --o4: #104281;
+  /* diverging poles (net per trade by year) */
+  --pos: #2a78d6; --neg: #e34948;
+  /* status: always paired with an icon and a label */
+  --good: #0ca30c; --good-ink: #006300; --good-bg: #e7f6e7;
+  --bad: #d03b3b; --bad-bg: #fbeaea;
+  --warn: #fab219; --warn-ink: #8a5a00; --warn-bg: #fdf3dc;
+  --neutral-bg: #f0efec;
+  --band: rgba(42,120,214,0.10);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --raised: #1f1f1e;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --accent: #e0a83a; --accent-soft: #33291a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --o1: #184f95; --o2: #2a78d6; --o3: #5598e7; --o4: #9ec5f4;
+    --pos: #3987e5; --neg: #e66767;
+    --good-ink: #0ca30c; --good-bg: #13260f; --bad-bg: #2e1616;
+    --warn-ink: #fab219; --warn-bg: #2e2510; --neutral-bg: #383835;
+    --band: rgba(57,135,229,0.16);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --raised: #1f1f1e;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --accent: #e0a83a; --accent-soft: #33291a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --o1: #184f95; --o2: #2a78d6; --o3: #5598e7; --o4: #9ec5f4;
+  --pos: #3987e5; --neg: #e66767;
+  --good-ink: #0ca30c; --good-bg: #13260f; --bad-bg: #2e1616;
+  --warn-ink: #fab219; --warn-bg: #2e2510; --neutral-bg: #383835;
+  --band: rgba(57,135,229,0.16);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.55 var(--font); }
+a { color: inherit; }
+.top { position: sticky; top: 0; z-index: 5; background: var(--page); border-bottom: 1px solid var(--grid); }
+.bar { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  padding-block: 12px 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand b { font-size: 17px; letter-spacing: -0.01em; }
+.brand .au { font: 700 12px var(--mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; }
+.meta { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.pill { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 10px; }
+.pill.real { background: var(--good-bg); color: var(--good-ink); }
+.pill.sample { background: var(--warn-bg); color: var(--warn-ink); }
+nav { width: 100%; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+nav a { padding: 10px 12px 11px; text-decoration: none; color: var(--ink-2); font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; }
+nav a:hover { color: var(--ink); }
+nav a.on { color: var(--ink); border-bottom-color: var(--accent); }
+nav a:focus-visible, button:focus-visible, summary:focus-visible, tr[tabindex]:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+main { max-width: 1180px; margin: 0 auto; padding-block: 24px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px; }
+h1 { font-size: clamp(24px, 3.4vw, 34px); line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 19px; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 70ch; margin: 0; }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 18px 20px; min-width: 0; display: grid; gap: 12px; }
+.card > header { display: grid; gap: 4px; }
+.card > header p { margin: 0; color: var(--ink-2); max-width: 75ch; }
+.q { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.grid2 { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.hero { display: grid; gap: 14px; }
+.verdict { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 10px; background: var(--bad-bg); }
+.verdict.ok { background: var(--good-bg); }
+.verdict .ic { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; background: var(--bad); }
+.verdict.ok .ic { background: var(--good); }
+.tiles { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.tile .l { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.tile .v { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0; }
+.tile .s { font-size: 13px; color: var(--muted); }
+.neg { color: var(--neg); } .posv { color: var(--pos); }
+.chart { position: relative; }
+.chart { overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; }
+/* Below ~620px a scaled-down chart's labels drop under legible size; keep it at a
+   readable width and let it scroll inside its own box instead. */
+@media (max-width: 620px) { .chart svg { min-width: 600px; } }
+.chart text { font: 11px var(--font); fill: var(--muted); }
+.chart .lbl { font-size: 12px; fill: var(--ink-2); font-weight: 600; }
+.chart .grid { stroke: var(--grid); stroke-width: 1; }
+.chart .axis { stroke: var(--axis); stroke-width: 1; }
+.chart .ref { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.chart .xh { stroke: var(--ink-2); stroke-width: 1; opacity: .5; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; }
+.legend i.dash { border-top-style: dashed; }
+.legend i.dot { width: 9px; height: 9px; border-radius: 50%; border: 0; }
+.legend i.box { width: 12px; height: 10px; border: 0; border-radius: 2px; }
+.note { font-size: 13px; color: var(--ink-2); margin: 0; max-width: 80ch; }
+.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--raised); color: var(--ink); border: 1px solid var(--ring);
+  box-shadow: 0 6px 20px rgba(0,0,0,.14); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.45; min-width: 140px; max-width: 280px; }
+.tip .h { color: var(--ink-2); font-size: 12px; margin-bottom: 4px; }
+.tip .r { display: flex; align-items: center; gap: 8px; }
+.tip .r b { font-variant-numeric: tabular-nums; }
+.tip .r i { width: 12px; height: 0; border-top: 2px solid; flex: none; }
+.tip .r span { color: var(--ink-2); }
+details { font-size: 13px; }
+summary { cursor: pointer; color: var(--ink-2); width: fit-content; }
+.tw { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 8px 10px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.go { cursor: pointer; } tr.go:hover td { background: var(--neutral-bg); }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
+.chip.ALERT, .chip.TRADED { background: var(--good-bg); color: var(--good-ink); }
+.chip.NO_TRADE { background: var(--warn-bg); color: var(--warn-ink); }
+.chip.QUIET, .chip.SIGNAL { background: var(--neutral-bg); color: var(--ink-2); }
+.chip.WARMUP { background: var(--neutral-bg); color: var(--muted); }
+.zt { position: relative; height: 18px; min-width: 150px; }
+.zt .track { position: absolute; left: 0; right: 0; top: 8px; height: 2px; background: var(--grid); }
+.zt .zone { position: absolute; top: 4px; height: 10px; background: var(--neutral-bg); border-radius: 2px; }
+.zt .mid { position: absolute; top: 3px; width: 1px; height: 12px; background: var(--axis); }
+.zt .dot { position: absolute; top: 4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface); }
+.zt .dot.hot { background: var(--accent); }
+.prop { display: flex; height: 26px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.prop div { display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700; min-width: 0; }
+.mono { font-family: var(--mono); font-size: 13px; }
+.muted { color: var(--muted); }
+.back { border: 1px solid var(--ring); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; width: fit-content; }
+.err { padding: 16px; border-radius: 10px; background: var(--bad-bg); }
+.gates { display: grid; gap: 6px; }
+.gate { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.gate b { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 11px; flex: none; }
+dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+dl.kv dt { color: var(--ink-2); } dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: no-preference) { tr.go td, nav a { transition: background .12s, color .12s; } }
 </style>
 </head>
 <body>
-<aside>
-  <div class="brand"><div class="logo">Au</div><div><b>Gold Spread Monitor</b><small>Binary Bridge</small></div></div>
-  <nav id="nav">
-    <a data-r="overview">Overview</a>
-    <a data-r="pairs">Pairs<span class="cnt" id="ncnt" hidden></span></a>
-    <a data-r="decisions">Decision log</a>
-    <a data-r="risk">Risk &amp; margin</a>
-    <a data-r="data">Data quality</a>
-    <a data-r="backtest">Backtest</a>
-  </nav>
-  <div class="foot" id="foot">Connecting to API…</div>
-</aside>
-<main>
-  <header><h1 id="ttl">Overview</h1><span class="pill" id="srcpill" hidden></span>
-    <div class="hr"><span id="runinfo"></span></div></header>
-  <div id="view"><div class="muted" style="padding:30px">Loading…</div></div>
-</main>
-<div class="tip" id="tip"></div>
+<div class="top">
+  <div class="bar">
+    <div class="brand"><span class="au">Au</span><b>MCX Gold Relative Value</b></div>
+    <div class="meta" id="meta">Connecting…</div>
+    <nav id="nav" aria-label="Sections">
+      <a href="#/findings" data-r="findings">Findings</a>
+      <a href="#/today" data-r="today">Today</a>
+      <a href="#/backtest" data-r="backtest">Backtest</a>
+      <a href="#/data" data-r="data">Data</a>
+    </nav>
+  </div>
+</div>
+<main id="view" aria-live="polite"><p class="muted">Loading…</p></main>
+<div class="tip" id="tip" hidden></div>
+
 <script>
-// API base: same origin by default; override with ?api=https://your-api.onrender.com
+// API base: same origin by default; override with ?api=https://your-api.example
 const API = (new URLSearchParams(location.search).get("api") || window.MCX_API || "").replace(/\/$/, "");
 const $ = s => document.querySelector(s);
-const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const inr = v => v == null ? "–" : "₹" + Math.round(v).toLocaleString("en-IN");
-const n = (v, d = 2, sign = false) => v == null ? "–" : (sign && v > 0 ? "+" : "") + Number(v).toFixed(d);
-const pct = (v, d = 1) => v == null ? "–" : (v * 100).toFixed(d) + "%";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const fin = v => v != null && Number.isFinite(Number(v));
+const bp = (v, d = 1) => fin(v) ? (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d) + " bp" : "–";
+const num = (v, d = 2) => fin(v) ? (v < 0 ? "−" : "") + Math.abs(v).toFixed(d) : "–";
+const inr = v => fin(v) ? (v < 0 ? "−₹" : "₹") + Math.abs(Math.round(v)).toLocaleString("en-IN") : "–";
+const lakh = v => fin(v) ? (v < 0 ? "−" : "") + "₹" + (Math.abs(v) / 1e5).toFixed(2) + " L" : "–";
+const pct = (v, d = 0) => fin(v) ? (v * 100).toFixed(d) + "%" : "–";
 const fdate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", {day: "2-digit", month: "short", year: "numeric"}) : "–";
-const chip = s => `<span class="chip s-${esc(s)}">${esc(String(s).replace("_", " "))}</span>`;
-const pairUrl = p => p.replace("/", "-");
-const GATES = {gate_history: "Enough history", gate_stationary: "Spread mean-reverts (ADF)", gate_halflife: "Half-life short enough", gate_magnitude: "Gap big enough to beat costs"};
+const fmon = ms => new Date(ms).toLocaleDateString("en-GB", {month: "short", year: "2-digit"});
+const ms = d => new Date(d + "T00:00:00").getTime();
+const BANDS = [["|z| 0-1", "|z| below 1", "--o1"], ["|z| 1-2", "|z| 1 to 2", "--o2"], ["|z| 2-3", "|z| 2 to 3", "--o3"], ["|z| 3-inf", "|z| 3 and above", "--o4"]];
+const PREM = [["GOLDGUINEA", "--s1"], ["GOLDPETAL", "--s2"], ["GOLDTEN", "--s3"]];
+const STATUS_ICON = {ALERT: "●", TRADED: "●", NO_TRADE: "▲", QUIET: "○", SIGNAL: "○", WARMUP: "◌"};
+const chip = s => `<span class="chip ${esc(s)}"><span aria-hidden="true">${STATUS_ICON[s] || ""}</span>${esc(String(s).replace("_", " ").toLowerCase())}</span>`;
+const GATES = {gate_history: "Enough history", gate_stationary: "Spread mean-reverts (ADF)", gate_halflife: "Half-life fits the contract", gate_magnitude: "Gap beats the noise floor"};
 
 async function get(path) {
   const r = await fetch(API + path);
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.status + " " + r.statusText);
   return r.json();
 }
+const cache = {};
+const once = path => cache[path] || (cache[path] = get(path).catch(e => { delete cache[path]; throw e; }));
+
+// ------------------------------------------------------------------ tooltip
+const tip = $("#tip");
+function showTip(x, y, head, rows) {
+  tip.replaceChildren();
+  const h = document.createElement("div"); h.className = "h"; h.textContent = head; tip.append(h);
+  for (const r of rows) {
+    const row = document.createElement("div"); row.className = "r";
+    if (r.color) { const i = document.createElement("i"); i.style.borderColor = `var(${r.color})`; if (r.dash) i.style.borderTopStyle = "dashed"; row.append(i); }
+    const b = document.createElement("b"); b.textContent = r.value; row.append(b);
+    if (r.label) { const s = document.createElement("span"); s.textContent = r.label; row.append(s); }
+    tip.append(row);
+  }
+  tip.hidden = false;
+  const w = tip.offsetWidth, hgt = tip.offsetHeight;
+  tip.style.left = Math.min(x + 14, innerWidth - w - 8) + "px";
+  tip.style.top = Math.min(y + 14, innerHeight - hgt - 8) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+// ------------------------------------------------------------------ chart helpers
+function niceTicks(lo, hi, n = 5) {
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+  const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  const t = []; for (let v = Math.floor(lo / step) * step; v <= hi + step * 1e-9; v += step) t.push(+v.toFixed(10));
+  if (t[0] > lo) t.unshift(t[0] - step);
+  if (t[t.length - 1] < hi) t.push(t[t.length - 1] + step);
+  return t;
+}
+const CHARTS = {};
+let chartSeq = 0;
+/*
+ * Line chart. series: [{name, color (css var), values: [[x, y]...], dash, width}]
+ * opts: {W, H, xType: "date"|"num", xTicks, xFmt, yFmt, yUnit, refs: [{y, label}],
+ *        band: {color, lo: [[x,y]], hi: [[x,y]]}, endLabels: bool, zero: bool, xLabel, tipHead}
+ */
+function lineChart(series, o) {
+  const id = "c" + (++chartSeq), W = o.W || 720, H = o.H || 300;
+  const pl = o.pl || 52, pr = o.endLabels ? 112 : 16, pt = 12, pb = o.xLabel ? 44 : 28;
+  const pts = series.flatMap(s => s.values).concat(o.band ? o.band.lo.concat(o.band.hi) : []);
+  const xs = [...new Set(series.flatMap(s => s.values.map(v => v[0])))].sort((a, b) => a - b);
+  if (!xs.length) return `<p class="muted">No data.</p>`;
+  let ylo = Math.min(...pts.map(p => p[1]), ...(o.refs || []).map(r => r.y)), yhi = Math.max(...pts.map(p => p[1]), ...(o.refs || []).map(r => r.y));
+  if (o.zero) { ylo = Math.min(ylo, 0); yhi = Math.max(yhi, 0); }
+  const yt = niceTicks(ylo, yhi), y0 = yt[0], y1 = yt[yt.length - 1];
+  const x0 = o.xMin ?? xs[0], x1 = o.xMax ?? xs[xs.length - 1];
+  const X = x => pl + (W - pl - pr) * (x - x0) / ((x1 - x0) || 1), Y = y => pt + (H - pt - pb) * (y1 - y) / ((y1 - y0) || 1);
+  const path = vals => vals.map((v, i) => (i ? "L" : "M") + X(v[0]).toFixed(1) + "," + Y(v[1]).toFixed(1)).join("");
+  const yFmt = o.yFmt || (v => v), xFmt = o.xFmt || (v => v);
+  let g = "";
+  for (const t of yt) g += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}"/><text x="${pl - 8}" y="${Y(t) + 4}" text-anchor="end">${esc(yFmt(t))}</text>`;
+  const xticks = o.xTicks || (o.xType === "date" ? dateTicks(x0, x1) : xs);
+  for (const t of xticks) g += `<text x="${X(t)}" y="${H - pb + 18}" text-anchor="middle">${esc(xFmt(t))}</text>`;
+  g += `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${H - pb}" y2="${H - pb}"/>`;
+  if (o.zero && y0 < 0 && y1 > 0) g += `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${Y(0)}" y2="${Y(0)}"/>`;
+  if (o.xLabel) g += `<text x="${pl + (W - pl - pr) / 2}" y="${H - 6}" text-anchor="middle">${esc(o.xLabel)}</text>`;
+  if (o.band) {
+    const up = o.band.hi.map(v => X(v[0]).toFixed(1) + "," + Y(v[1]).toFixed(1));
+    const dn = o.band.lo.slice().reverse().map(v => X(v[0]).toFixed(1) + "," + Y(v[1]).toFixed(1));
+    g += `<polygon points="${up.concat(dn).join(" ")}" style="fill:var(--band)"/>`;
+  }
+  for (const r of o.refs || []) g += `<line class="ref" x1="${pl}" x2="${W - pr}" y1="${Y(r.y)}" y2="${Y(r.y)}"/><text class="lbl" x="${W - pr - 4}" y="${Y(r.y) - 6}" text-anchor="end">${esc(r.label)}</text>`;
+  for (const s of series) {
+    g += `<path d="${path(s.values)}" fill="none" style="stroke:var(${s.color})" stroke-width="${s.width || 2}" stroke-linejoin="round" stroke-linecap="round"${s.dash ? ' stroke-dasharray="5 4"' : ""}/>`;
+    if (s.markers) for (const v of s.values) g += `<circle cx="${X(v[0])}" cy="${Y(v[1])}" r="4" style="fill:var(${s.color});stroke:var(--surface)" stroke-width="2"/>`;
+  }
+  if (o.endLabels) {
+    const ends = series.map(s => ({s, y: Y(s.values[s.values.length - 1][1])})).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
+    for (const e of ends) g += `<text class="lbl" x="${W - pr + 8}" y="${e.y + 4}">${esc(e.s.label || e.s.name)}</text>`;
+  }
+  g += `<line class="xh" id="${id}-xh" x1="0" x2="0" y1="${pt}" y2="${H - pb}" visibility="hidden"/>`;
+  g += `<rect x="${pl}" y="${pt}" width="${W - pl - pr}" height="${H - pt - pb}" fill="transparent" data-chart="${id}" tabindex="0" aria-label="${esc(o.aria || "chart")}; use the table view for exact values"/>`;
+  CHARTS[id] = {series, xs, X, W, pl, pr, xFmt: o.tipX || xFmt, yFmt: o.tipY || yFmt};
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria || "")}">${g}</svg></div>`;
+}
+function dateTicks(a, b) {
+  const t = [], d = new Date(a); d.setDate(1);
+  const months = (b - a) / 2.63e9, step = months > 40 ? 12 : months > 18 ? 6 : months > 8 ? 3 : 1;
+  d.setMonth(Math.ceil(d.getMonth() / step) * step);
+  while (d.getTime() <= b) { if (d.getTime() >= a) t.push(d.getTime()); d.setMonth(d.getMonth() + step); }
+  return t;
+}
+// Crosshair: snap to the nearest x, list every series at that x.
+function chartMove(e, rect) {
+  const c = CHARTS[rect.dataset.chart]; if (!c) return;
+  const svg = rect.ownerSVGElement, box = svg.getBoundingClientRect(), sx = (e.clientX - box.left) * c.W / box.width;
+  let best = c.xs[0], bd = Infinity;
+  for (const x of c.xs) { const d = Math.abs(c.X(x) - sx); if (d < bd) { bd = d; best = x; } }
+  const xh = svg.querySelector("#" + rect.dataset.chart + "-xh");
+  xh.setAttribute("x1", c.X(best)); xh.setAttribute("x2", c.X(best)); xh.setAttribute("visibility", "visible");
+  const rows = c.series.map(s => { const v = s.values.find(p => p[0] === best); return v ? {color: s.color, dash: s.dash, value: c.yFmt(v[1]), label: s.name} : null; }).filter(Boolean);
+  showTip(e.clientX, e.clientY, c.xFmt(best), rows);
+}
+document.addEventListener("pointermove", e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.chart) return chartMove(e, t);
+  const m = t.closest && t.closest("[data-tip]");
+  if (m) { const d = JSON.parse(m.dataset.tip); return showTip(e.clientX, e.clientY, d.h, d.r); }
+  document.querySelectorAll(".xh").forEach(x => x.setAttribute("visibility", "hidden"));
+  hideTip();
+});
+document.addEventListener("focusin", e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.chart) { const r = t.getBoundingClientRect(); chartMove({clientX: r.right - 10, clientY: r.top + 10}, t); }
+});
+document.addEventListener("focusout", hideTip);
+const tipAttr = (h, r) => ` data-tip="${esc(JSON.stringify({h, r}))}"`;
+const legend = items => `<div class="legend">${items.map(i => `<span><i class="${i.kind || ""}" style="${i.kind === "dot" || i.kind === "box" ? "background" : "border-color"}:var(${i.color})"></i>${esc(i.name)}</span>`).join("")}</div>`;
+const tableView = (head, rows) => `<details><summary>Table view</summary><div class="tw"><table><tr>${head.map((h, i) => `<th class="${i ? "num" : ""}">${esc(h)}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${i ? "num" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div></details>`;
 
 // ------------------------------------------------------------------ views
 const V = {};
-V.overview = async () => {
-  const o = await get("/api/overview"), m = o.meta, s = o.summary;
-  return `
-  ${s.WARMUP ? `<div class="banner" style="background:var(--blue-bg);color:var(--blue)"><b>Warming up on real data.</b> ${s.WARMUP} pairs need more history before they can be scored (${m.sessions} session${m.sessions === 1 ? "" : "s"} loaded so far). Prices, contract conversion and data checks below are live.</div>` : ""}
-  ${m.sample_data ? `<div class="banner" style="background:var(--gold-bg);color:var(--gold-t)"><b>Sample data.</b> This run uses the synthetic generator in MCX bhavcopy format. Run the nightly job with <span class="mono">--source csv</span> on downloaded bhavcopy for real market numbers.</div>` : ""}
-  <div class="grid k4">
-    <div class="card kpi"><div class="l">Latest session</div><div class="v" style="font-size:22px;margin:10px 0 6px">${fdate(m.asof)}</div>
-      <div class="s">${o.data_quality.rows_out.toLocaleString("en-IN")} validated rows · ${o.data_quality.date_echo_rows.toLocaleString("en-IN")} wrong-date rows caught</div></div>
-    <div class="card kpi"><div class="l">Alerts</div><div class="v ok">${s.ALERT}</div><div class="s">gates and risk checks passed</div></div>
-    <div class="card kpi"><div class="l">No trade</div><div class="v" style="color:var(--amber)">${s.NO_TRADE}</div><div class="s">unusual, but a gate refused</div></div>
-    <div class="card kpi"><div class="l">${s.WARMUP ? "Quiet / warming up" : "Quiet"}</div><div class="v">${s.QUIET}${s.WARMUP ? ` <span class="muted" style="font-size:20px">/ ${s.WARMUP}</span>` : ""}</div><div class="s">${s.WARMUP ? "nothing unusual / not enough history yet" : "nothing unusual"}</div></div>
-  </div>
-  <div class="grid k2" style="margin-top:16px">
-    <div class="card"><h3>Contracts <small>front month, converted to ₹ per gram of pure gold</small></h3><div class="tw">
-      <table><tr><th>Contract</th><th>Expiry</th><th class="num">Close</th><th>Quoted per</th><th>Purity</th><th class="num">₹/g pure</th><th>Tradable</th></tr>
-      ${o.contracts.map(c => `<tr data-tip="${esc(c.symbol)}: ₹${Math.round(c.close).toLocaleString("en-IN")} ÷ (${c.quote_base_g} g × ${c.purity}) = <b>₹${Math.round(c.inr_per_g_fine).toLocaleString("en-IN")}</b> per g">
-        <td><b>${esc(c.symbol)}</b></td><td>${fdate(c.expiry_date)}</td><td class="num">${inr(c.close)}</td><td>${c.quote_base_g} g</td><td>${c.purity}</td>
-        <td class="num"><b>${inr(c.inr_per_g_fine)}</b></td><td>${c.tradable ? '<span class="ok">yes</span>' : '<span class="bad">no</span>'} <span class="muted">${c.volume == null ? "–" : Number(c.volume).toLocaleString("en-IN")} lots</span></td></tr>`).join("")}
-      </table></div></div>
-    <div class="card"><h3>Gold, ₹ per 10 g fine <small>fitted level, last ${o.gold_level.length} sessions</small></h3>${lineChart(o.gold_level.map(g => g.inr_per_10g_fine), 520, 250)}</div>
-  </div>
-  <div class="card" style="margin-top:16px"><h3>Backtest verdict</h3><div>${esc(o.verdict.headline)}</div></div>`;
+
+V.findings = async () => {
+  const R = await once("/api/research"), p = R.performance || {}, c = R.costs || {}, w = R.window || {};
+  const cost = fin(c.gross_bp) && fin(c.net_bp) ? c.gross_bp - c.net_bp : null;
+  const es = R.event_study, ok = R.verdict && R.verdict.edge_survives_costs;
+  let html = `<section class="hero">
+    <h1>${ok ? "An edge survives costs" : "The dislocation is real. The edge does not survive costs."}</h1>
+    <p class="lede">Four MCX gold futures, put on one basis (₹ per 10 g of fine gold), with carry and each coin's slow-moving premium removed. What is left is tested on ${(w.sessions || 0).toLocaleString("en-IN")} sessions, ${fdate(w.start)} to ${fdate(w.end)}.</p>
+    <div class="verdict ${ok ? "ok" : ""}"><span class="ic" aria-hidden="true">${ok ? "✓" : "✕"}</span><div><b>${esc(R.verdict ? R.verdict.headline : "")}</b><br><span class="note">${p.n_trades || 0} walk-forward trades, filled at the next session's settlement, four bid-ask crossings each.</span></div></div>
+    <div class="tiles">
+      <div class="tile"><div class="l">Gross per trade</div><div class="v">${bp(c.gross_bp)}</div><div class="s">what convergence paid</div></div>
+      <div class="tile"><div class="l">Costs per trade</div><div class="v">${fin(cost) ? cost.toFixed(1) + " bp" : "–"}</div><div class="s">fees, taxes, spread, slippage</div></div>
+      <div class="tile"><div class="l">Net per trade</div><div class="v ${c.net_bp < 0 ? "neg" : "posv"}">${bp(c.net_bp)}</div><div class="s">hit rate ${pct(p.hit_rate_net)}</div></div>
+      <div class="tile"><div class="l">Breakeven spread</div><div class="v">${num(c.breakeven_half_spread_bp, 1)} bp</div><div class="s">per leg, per crossing</div></div>
+    </div></section>`;
+
+  if (es && es.rows && es.rows.length) {
+    const hz = [...new Set(es.rows.map(r => r.horizon))].sort((a, b) => a - b);
+    const series = BANDS.map(([k, name, color]) => ({name, label: name.replace("|z| ", ""), color,
+      values: es.rows.filter(r => r.z_band === k).map(r => [r.horizon, r.mean_conv_bp]), markers: true}));
+    const top = es.rows.filter(r => r.z_band === "|z| 3-inf");
+    const clears = es.rows.filter(r => r.ci_clears_costs);
+    html += `<section class="card"><header><span class="q">1 · Is the signal real?</span><h2>Wide spreads do close, and wider ones close further</h2>
+      <p>Average convergence after a dislocation, by how extreme it was (|z|) and how long you wait. Every pair-day counts, tradable or not. The shaded band is the 95% bootstrap interval for |z| ≥ 3.</p></header>
+      ${legend(series.map(s => ({name: s.name, color: s.color}))
+        .concat([{name: "round-trip cost at " + es.half_spread_bp + " bp spread", color: "--ink-2", kind: "dash"}]))}
+      ${lineChart(series, {W: 760, H: 320, xTicks: hz, xFmt: v => v + "", tipX: v => "after " + v + " session" + (v === 1 ? "" : "s"), yFmt: v => v + " bp", tipY: v => bp(v),
+        refs: [{y: es.round_trip_bp, label: "cost " + es.round_trip_bp.toFixed(0) + " bp"}], zero: true, xLabel: "sessions held",
+        band: {lo: top.map(r => [r.horizon, r.boot_ci_lo]), hi: top.map(r => [r.horizon, r.boot_ci_hi])}, endLabels: true,
+        aria: "Mean convergence in basis points by horizon for four |z| bands, with the round-trip cost line"})}
+      <p class="note">${clears.length ? `Only ${clears.map(r => esc(r.z_band.replace("|z| 3-inf", "|z| ≥ 3")) + " held " + r.horizon + " sessions").join(", ")} clears the cost line with 95% confidence.` : "No band and horizon clears the cost line with 95% confidence."} The backtest rarely holds that long: ${R.exit_reasons ? `${R.exit_reasons.stop || 0} of ${p.n_trades} trades were stopped out after the spread widened further` : "most trades exit early"}.</p>
+      ${tableView(["band", "sessions", "n", "mean bp", "95% CI", "NW t", "net of cost"], es.rows.map(r => [r.z_band, r.horizon, r.n, num(r.mean_conv_bp, 1), num(r.boot_ci_lo, 1) + " to " + num(r.boot_ci_hi, 1), num(r.t_newey_west, 2), num(r.net_conv_bp, 1)]))}
+    </section>`;
+  }
+
+  if (c.sweep && c.sweep.length && fin(c.gross_bp)) {
+    const stat = c.sweep[0].statutory_bp, per = (c.sweep[0].round_trip_bp - stat) / c.sweep[0].half_spread_bp_per_leg;
+    const xsw = [0, 1, 2, 3, 4, 5, 6, 8, 10], line = xsw.map(x => [x, stat + per * x]);
+    const be = c.breakeven_half_spread_bp;
+    html += `<section class="card"><header><span class="q">2 · Can you trade it?</span><h2>Costs pass the gross edge almost immediately</h2>
+      <p>A spread trade crosses the bid-ask four times. Statutory charges alone are ${stat.toFixed(1)} bp. Bhavcopy carries no order book, so the bid-ask spread is an assumption: the line shows total cost as it widens.</p></header>
+      ${legend([{name: "round-trip cost", color: "--s1"}, {name: "average gross edge per trade", color: "--ink-2", kind: "dash"}])}
+      ${lineChart([{name: "round-trip cost", color: "--s1", values: line}], {W: 760, H: 280, xTicks: [0, 1, 2, 4, 6, 8, 10], xFmt: v => v + " bp", tipX: v => "half-spread " + v + " bp per leg", yFmt: v => v + " bp", tipY: v => num(v, 1) + " bp",
+        refs: [{y: c.gross_bp, label: "gross edge " + c.gross_bp.toFixed(1) + " bp"}], zero: true, xLabel: "assumed half-spread per leg (bp)",
+        aria: "Round-trip cost against assumed half-spread, with the gross edge as a reference line"})}
+      <p class="note">The lines cross at <b>${num(be, 1)} bp per leg</b>. The strategy only pays if the book is tighter than that on both legs, on the days it wants to trade. On GOLDGUINEA, ${(R.coverage || []).find(x => x.symbol === "GOLDGUINEA")?.untradeable_rows ?? "many"} sessions had no genuine trade at all.</p>
+      ${tableView(["half-spread per leg", "statutory", "execution", "round trip"], c.sweep.map(r => [r.half_spread_bp_per_leg + " bp", r.statutory_bp, r.execution_bp, r.round_trip_bp]))}
+    </section>`;
+  }
+
+  if (R.premiums && R.premiums.length) {
+    const series = PREM.map(([s, color]) => ({name: s, color, values: R.premiums.filter(r => r.symbol === s && fin(r.premium_bp)).map(r => [ms(r.date), r.premium_bp])})).filter(s => s.values.length);
+    const last = Object.fromEntries(series.map(s => [s.name, s.values[s.values.length - 1][1]]));
+    html += `<section class="card"><header><span class="q">3 · What is not signal</span><h2>Coin contracts trade at a premium that drifts slowly, and the model removes it</h2>
+      <p>Premium over the GOLDM 995 bar (pinned at zero), re-estimated weekly from the previous 120 sessions only. It moves over months, not days: minting costs, delivery demand and who trades each contract all shift it. A naive parity spread would read this drift as mispricing and bet against it.</p></header>
+      ${legend(series.map(s => ({name: s.name, color: s.color})))}
+      ${lineChart(series, {W: 760, H: 280, xType: "date", xFmt: fmon, tipX: v => fdate(new Date(v).toISOString().slice(0, 10)), yFmt: v => v + " bp", tipY: v => bp(v), zero: true, endLabels: true,
+        aria: "Structural premium in basis points over time for GOLDGUINEA, GOLDPETAL and GOLDTEN versus GOLDM"})}
+      <p class="note">Latest: ${series.map(s => `${esc(s.name)} ${bp(last[s.name])}`).join(" · ")}. The swings are large: GOLDPETAL ranged from about ${bp(Math.min(...(series.find(s => s.name === "GOLDPETAL")?.values || [[0, 0]]).map(v => v[1])), 0)} to ${bp(Math.max(...(series.find(s => s.name === "GOLDPETAL")?.values || [[0, 0]]).map(v => v[1])), 0)}. Left in, they would dwarf the 20–70 bp dislocations the strategy trades.</p>
+    </section>`;
+  }
+
+  if (R.by_year && R.by_year.length) html += `<section class="grid2">${yearCard(R)}${exitCard(R, p)}</section>`;
+  html += `<section class="card"><header><span class="q">How we know the engine is honest</span><h2>Checks that run on every change</h2></header>
+    <ul class="note" style="margin:0;padding-left:18px;display:grid;gap:4px">
+      <li><b>Null world:</b> on synthetic data with no relative value, the strategy must show no edge. Profit there would mean a look-ahead or costing bug.</li>
+      <li><b>Known truth:</b> a synthetic world with an injected premium and dislocation, which the model must recover.</li>
+      <li><b>No look-ahead:</b> cutting off future data must not change any past signal.</li>
+      <li><b>Next-session fills:</b> a signal from today's settlement is filled tomorrow, never at the price that produced it.</li>
+    </ul><p class="note">All run in the test suite on every push to GitHub.</p></section>`;
+  return html;
 };
 
-V.pairs = async () => {
-  const ps = await get("/api/pairs");
-  return `<div class="card"><h3>Pairs on the latest session <small>contracts matched by expiry; normal expiry gap removed before scoring</small></h3><div class="tw">
-  <table><tr><th>Pair</th><th>Matched expiry</th><th class="num">Spread</th><th class="num">Extra vs normal</th><th class="num">z</th><th class="num">Half-life</th><th>Decision</th><th>Reason</th></tr>
-  ${ps.map(p => `<tr class="click" data-go="pair/${pairUrl(p.pair)}"><td><b>${esc(p.pair)}</b></td><td>${p.maturity_matched ? "yes" : "carry-bridged"}</td>
-    <td class="num">${n(p.spread_bp, 1, true)} bp</td><td class="num">${n(p.dislocation_bp, 1, true)} bp</td><td class="num"><b>${n(p.z)}</b></td>
-    <td class="num">${p.halflife == null ? "∞" : n(p.halflife, 1)}</td><td>${chip(p.status)}</td><td class="muted">${esc(p.reason)}</td></tr>`).join("")}
-  </table></div></div>`;
+function yearCard(R) {
+  const ys = R.by_year, W = 420, H = 230, pl = 46, pr = 12, pt = 14, pb = 28;
+  const vals = ys.map(y => y.net_bp), t = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals), 4), y0 = t[0], y1 = t[t.length - 1];
+  const Y = v => pt + (H - pt - pb) * (y1 - v) / (y1 - y0), bw = (W - pl - pr) / ys.length;
+  let g = t.map(v => `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${pl - 8}" y="${Y(v) + 4}" text-anchor="end">${v} bp</text>`).join("");
+  ys.forEach((y, i) => {
+    const x = pl + i * bw + 6, top = Math.min(Y(y.net_bp), Y(0)), h = Math.max(1, Math.abs(Y(y.net_bp) - Y(0)));
+    const tipd = tipAttr(String(y.year), [{value: bp(y.net_bp), label: "net per trade"}, {value: bp(y.gross_bp), label: "gross per trade"}, {value: String(y.n), label: "trades"}, {value: inr(y.net_pnl), label: "net P&L"}]);
+    g += `<g${tipd}><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/><rect x="${x}" y="${top}" width="${bw - 12}" height="${h}" rx="3" style="fill:var(${y.net_bp >= 0 ? "--pos" : "--neg"})"/></g>`;
+    g += `<text class="lbl" x="${x + (bw - 12) / 2}" y="${y.net_bp >= 0 ? top - 6 : top + h + 14}" text-anchor="middle">${num(y.net_bp, 1)}</text>`;
+    g += `<text x="${x + (bw - 12) / 2}" y="${H - pb + 18}" text-anchor="middle">${y.year}</text>`;
+  });
+  g += `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${Y(0)}" y2="${Y(0)}"/>`;
+  return `<div class="card"><header><span class="q">4 · Is it stable?</span><h2>Net per trade, by entry year</h2><p>Only 2022 was positive. GOLDTEN pairs exist only from 2025.</p></header>
+    ${legend([{name: "positive", color: "--pos", kind: "box"}, {name: "negative", color: "--neg", kind: "box"}])}
+    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Net basis points per trade by entry year">${g}</svg></div>
+    ${tableView(["year", "trades", "gross bp", "net bp", "net P&L"], ys.map(y => [y.year, y.n, num(y.gross_bp, 1), num(y.net_bp, 1), inr(y.net_pnl)]))}</div>`;
+}
+function exitCard(R, p) {
+  const ex = R.exit_reasons || {}, tot = Object.values(ex).reduce((a, b) => a + b, 0) || 1;
+  const order = [["stop", "stopped out", "--s2"], ["converged", "converged", "--s1"], ["calendar", "expiry runway", "--s3"], ["max_holding", "held too long", "--o2"]];
+  const parts = order.filter(o => ex[o[0]]);
+  return `<div class="card"><header><span class="q">Why trades end</span><h2>Half the trades are stopped out</h2>
+    <p>A spread that keeps widening after entry hits the stop. Contracts nearing expiry force the rest out before convergence.</p></header>
+    ${legend(parts.map(o => ({name: o[1], color: o[2], kind: "box"})))}
+    <div class="prop" role="img" aria-label="${esc(parts.map(o => o[1] + " " + ex[o[0]]).join(", "))}">${parts.map(o => `<div style="flex:${ex[o[0]]};background:var(${o[2]})"${tipAttr(o[1], [{value: String(ex[o[0]]), label: "trades"}, {value: pct(ex[o[0]] / tot), label: "of all"}])}>${ex[o[0]] / tot > 0.12 ? ex[o[0]] : ""}</div>`).join("")}</div>
+    <dl class="kv">${parts.map(o => `<dt>${esc(o[1])}</dt><dd>${ex[o[0]]} trades · ${pct(ex[o[0]] / tot)}</dd>`).join("")}
+      <dt>average holding</dt><dd>${num(p.mean_sessions_held, 1)} sessions</dd></dl></div>`;
+}
+
+V.today = async () => {
+  const [ov, ps] = await Promise.all([once("/api/overview"), once("/api/pairs")]);
+  const zmax = 4, pos = z => Math.max(0, Math.min(100, (z + zmax) / (2 * zmax) * 100)), ze = ov.meta.z_entry;
+  const s = ov.summary;
+  return `<section class="hero"><h1>${s.ALERT ? s.ALERT + " pair" + (s.ALERT > 1 ? "s" : "") + " unusual and tradeable" : "Nothing unusual on " + fdate(ov.meta.asof)}</h1>
+    <p class="lede">Each pair's residual spread against its own trailing history. A signal needs |z| ≥ ${ze} and every gate to pass. Quiet is the normal state, not a fault.</p></section>
+  <section class="card"><header><h2>Pairs on the latest session</h2><p>Select a pair for its history and gates.</p></header><div class="tw"><table>
+    <tr><th>Pair</th><th>Decision</th><th>z, from −4 to +4 (entry zone shaded)</th><th class="num">z</th><th class="num">Spread vs normal</th><th class="num">Half-life</th><th>Reason</th></tr>
+    ${ps.map(p => `<tr class="go" tabindex="0" data-go="pair/${esc(p.pair.replace("/", "-"))}"><td><b>${esc(p.pair)}</b><br><span class="muted" style="font-size:12px">${p.maturity_matched ? "same expiry" : "carry-bridged"}</span></td><td>${chip(p.status)}</td>
+      <td><div class="zt" aria-hidden="true"><div class="track"></div><div class="zone" style="left:0;width:${pos(-ze)}%"></div><div class="zone" style="left:${pos(ze)}%;right:0"></div><div class="mid" style="left:50%"></div>${fin(p.z) ? `<div class="dot ${Math.abs(p.z) >= ze ? "hot" : ""}" style="left:${pos(p.z)}%"></div>` : ""}</div></td>
+      <td class="num"><b>${num(p.z)}</b></td><td class="num">${bp(p.dislocation_bp)}</td><td class="num">${fin(p.halflife) ? num(p.halflife, 1) + " d" : "∞"}</td><td class="muted">${esc(p.reason)}</td></tr>`).join("")}
+  </table></div></section>
+  <section class="card"><header><h2>Front-month contracts</h2><p>Settlement converted to ₹ per 10 g of fine gold: close × 10 ÷ (quote grams × purity).</p></header><div class="tw"><table>
+    <tr><th>Contract</th><th>Expiry</th><th class="num">Settlement</th><th class="num">Quoted per</th><th class="num">Purity</th><th class="num">₹ per 10 g fine</th><th class="num">Volume (lots)</th><th class="num">Sessions left</th></tr>
+    ${ov.contracts.map(c => `<tr><td><b>${esc(c.symbol)}</b></td><td>${fdate(c.expiry_date)}</td><td class="num">${inr(c.close)}</td><td class="num">${c.quote_base_g} g</td><td class="num">${c.purity}</td><td class="num"><b>${inr(c.norm_close_10g)}</b></td><td class="num">${fin(c.volume) ? Number(c.volume).toLocaleString("en-IN") : "–"}</td><td class="num">${c.sessions_to_expiry ?? "–"}</td></tr>`).join("")}
+  </table></div></section>`;
 };
 
 V.pair = async (id) => {
-  const p = await get("/api/pairs/" + id), r = p.risk || {};
-  const gates = Object.entries(p.gates).map(([k, ok]) => `<div class="gate"><div class="gi" style="background:${ok == null ? "#9CA3AF" : ok ? "var(--green)" : "var(--red)"}">${ok == null ? "–" : ok ? "✓" : "✕"}</div><div>${esc(GATES[k] || k)}${ok == null ? ' <span class="muted">not tested yet</span>' : ""}</div></div>`).join("");
-  return `<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap"><button class="btn" data-go="pairs">← Pairs</button>
-    <h2 style="margin:0;font-size:22px">${esc(p.pair)}</h2>${chip(p.status)}<span class="muted">${esc(p.reason)}</span></div>
-  <div class="grid k2">
-    <div class="card"><h3>Spread vs its own history <small>band = trailing centre ± ${p.z_entry}×scale, data to the previous session only</small></h3>${bandChart(p.history, p.z_entry, 820, 320)}
-      <div style="margin-top:10px${p.status === "WARMUP" ? ";display:none" : ""}">Today: spread ${n(p.spread_bp, 1, true)} bp, centre ${n(p.centre_bp, 1, true)} bp, z = <b>${n(p.z)}</b>, half-life ${p.halflife == null ? "∞" : n(p.halflife, 1)} sessions, ADF t ${n(p.adf_t)}</div></div>
-    <div class="card"><h3>Statistical gates</h3>${gates}
-      <h3 style="margin-top:16px">Risk board</h3>
-      ${p.risk ? `<table>
-        <tr><td>Action</td><td><b>${esc(r.action)}</b> <span class="muted">${esc(r.reason || "")}</span></td></tr>
-        <tr><td>Lots</td><td>${r.lots_a == null ? "–" : `${r.lots_a} × ${esc(p.sym_a)} · ${r.lots_b} × ${esc(p.sym_b)}`}</td></tr>
-        <tr><td>Notional</td><td>${inr(r.notional_exposure)}</td></tr>
-        <tr><td>Margin if added</td><td>${inr(r.marginal_margin)} ${r.floor_binds ? '<span class="muted">(6% floor binds)</span>' : ""}</td></tr>
-        <tr><td>Utilisation if added</td><td>${pct(r.utilisation_if_added)}${r.buffer_state ? " · buffer " + esc(r.buffer_state) : ""}</td></tr>
-        <tr><td>SPAN change (21 sessions)</td><td>${pct(r.span_change_pct)}</td></tr></table>` : `<div class="muted">not priced</div>`}
-    </div></div>
-  <div class="card" style="margin-top:16px"><h3>Recent unusual sessions for this pair</h3>${decisionTable(p.recent_decisions)}</div>`;
-};
-
-function decisionTable(items) {
-  if (!items.length) return `<div class="muted">None in the window.</div>`;
-  return `<div class="tw"><table><tr><th>Date</th><th>Pair</th><th class="num">z</th><th class="num">Extra</th><th>Decision</th><th>Reason</th></tr>
-  ${items.map(d => `<tr><td>${fdate(d.date)}</td><td><b>${esc(d.pair)}</b></td><td class="num">${n(d.z)}</td><td class="num">${n(d.dislocation_bp, 1, true)} bp</td><td>${chip(d.status)}</td><td class="muted">${esc(d.reason)}</td></tr>`).join("")}</table></div>`;
-}
-
-V.decisions = async () => {
-  const d = await get("/api/decisions?limit=200"), c = d.counts;
-  return `<div class="grid k4" style="margin-bottom:16px">
-    <div class="card kpi"><div class="l">Unusual sessions</div><div class="v">${d.total}</div><div class="s">|z| at or above entry, recent window</div></div>
-    <div class="card kpi"><div class="l">Traded</div><div class="v ok">${c.TRADED || 0}</div><div class="s">entered next session</div></div>
-    <div class="card kpi"><div class="l">Signal, not entered</div><div class="v" style="color:var(--blue)">${c.SIGNAL || 0}</div><div class="s">book full or could not size</div></div>
-    <div class="card kpi"><div class="l">No trade</div><div class="v" style="color:var(--amber)">${c.NO_TRADE || 0}</div><div class="s">each with the gate that refused</div></div></div>
-  <div class="card"><h3>Decision log <small>every unusual pair-session and what decided it</small></h3>${decisionTable(d.items)}</div>`;
-};
-
-V.risk = async () => {
-  const rb = await get("/api/risk");
-  return `<div class="card"><h3>Risk board <small>margin is costed marginally against the open book; the board exists to say no</small></h3><div class="tw">
-  <table><tr><th>Pair</th><th>Action</th><th>Reason</th><th class="num">Notional</th><th class="num">Margin if added</th><th class="num">Utilisation</th><th>Buffer</th><th class="num">SPAN Δ</th></tr>
-  ${rb.map(r => `<tr><td><b>${esc(r.pair)}</b></td><td>${esc(r.action || "–")}</td><td class="muted">${esc(r.reason || "")}</td><td class="num">${inr(r.notional_exposure)}</td>
-    <td class="num">${inr(r.marginal_margin)}</td><td class="num">${pct(r.utilisation_if_added)}</td><td>${esc(r.buffer_state || "–")}</td><td class="num">${pct(r.span_change_pct)}</td></tr>`).join("")}
-  </table></div><div class="muted" style="margin-top:10px;font-size:13px">SPAN parameters are estimated from observed volatility unless MCX risk files are loaded (scripts/load_risk_params.py).</div></div>`;
-};
-
-V.data = async () => {
-  const q = await get("/api/data-quality");
-  return `<div class="grid k4" style="margin-bottom:16px">
-    <div class="card kpi"><div class="l">Rows received</div><div class="v">${q.rows_in.toLocaleString("en-IN")}</div><div class="s">raw bhavcopy rows</div></div>
-    <div class="card kpi"><div class="l">Rows validated</div><div class="v">${q.rows_out.toLocaleString("en-IN")}</div><div class="s">one per contract per session</div></div>
-    <div class="card kpi"><div class="l">Wrong-date rows</div><div class="v bad">${(q.flags.date_echo_rows || 0).toLocaleString("en-IN")}</div><div class="s">MCX returned another day</div></div>
-    <div class="card kpi"><div class="l">Run</div><div class="v mono" style="font-size:18px;margin:12px 0 6px">${esc(q.run_id)}</div><div class="s" data-tip="SHA-256 of the validated input<br><span class='mono'>${esc(q.data_fingerprint)}</span>">hover for full fingerprint</div></div></div>
-  <div class="grid k2"><div class="card"><h3>Data-quality flags <small>every problem is a column, never a silent fix</small></h3><table>
-    ${Object.entries(q.flags).map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="num">${v.toLocaleString("en-IN")}</td></tr>`).join("")}</table></div>
-  <div class="card"><h3>Wrong-date examples <small>requested vs returned</small></h3><table><tr><th>Requested</th><th>File said</th></tr>
-    ${q.date_echo_examples.map(e => `<tr><td>${esc(e[0])}</td><td class="bad">${esc(e[1])}</td></tr>`).join("") || '<tr><td class="muted" colspan="2">none</td></tr>'}</table></div></div>`;
+  const p = await get("/api/pairs/" + encodeURIComponent(id)), r = p.risk || {}, h = p.history || [], ze = p.z_entry;
+  const hs = h.filter(x => fin(x.spread_bp) && fin(x.centre) && fin(x.scale));
+  let chart = `<p class="muted">Not enough history yet.</p>`;
+  if (hs.length > 2) {
+    const spread = {name: "spread", color: "--s1", values: hs.map(x => [ms(x.date), x.spread_bp])};
+    const centre = {name: "trailing centre", color: "--muted", dash: true, width: 1.5, values: hs.map(x => [ms(x.date), x.centre])};
+    chart = legend([{name: "spread", color: "--s1"}, {name: "trailing centre", color: "--muted", kind: "dash"}, {name: `entry band (±${ze} × scale)`, color: "--band", kind: "box"}])
+      + lineChart([spread, centre], {W: 760, H: 300, xType: "date", xFmt: fmon, tipX: v => fdate(new Date(v).toISOString().slice(0, 10)), yFmt: v => v + " bp", tipY: v => bp(v),
+        band: {lo: hs.map(x => [ms(x.date), x.centre - ze * x.scale]), hi: hs.map(x => [ms(x.date), x.centre + ze * x.scale])},
+        aria: "Pair spread against its trailing centre and entry band"});
+  }
+  const gates = Object.entries(p.gates || {}).map(([k, ok]) => `<div class="gate"><b style="background:var(${ok ? "--good" : "--bad"})" aria-hidden="true">${ok ? "✓" : "✕"}</b>${esc(GATES[k] || k)} <span class="muted">${ok ? "pass" : "fail"}</span></div>`).join("");
+  return `<button class="back" data-go="today">← Today</button>
+  <section class="hero"><h1>${esc(p.pair)} ${chip(p.status)}</h1><p class="lede">${esc(p.reason)}. ${p.maturity_matched ? "Same expiry window." : "Different expiry windows, so the comparison relies on the carry model (carry-bridged)."}</p></section>
+  <section class="card"><header><h2>Spread against its own history</h2><p>Centre and band use data up to the previous session only. Last ${hs.length} sessions.</p></header>${chart}</section>
+  <section class="grid2">
+    <div class="card"><header><h2>Today</h2></header><dl class="kv">
+      <dt>z</dt><dd><b>${num(p.z)}</b></dd><dt>spread</dt><dd>${bp(p.spread_bp)}</dd><dt>vs normal</dt><dd>${bp(p.dislocation_bp)}</dd>
+      <dt>half-life</dt><dd>${fin(p.halflife) ? num(p.halflife, 1) + " sessions" : "∞"}</dd><dt>ADF t</dt><dd>${num(p.adf_t)}</dd></dl>
+      <h2 style="margin-top:8px">Gates</h2><div class="gates">${gates}</div></div>
+    <div class="card"><header><h2>Margin if added</h2><p>SPAN parameters are assumed, not MCX-published; see Data.</p></header>${p.risk ? `<dl class="kv">
+      <dt>action</dt><dd><b>${esc(r.action)}</b> <span class="muted">${esc(r.reason || "")}</span></dd>
+      <dt>lots</dt><dd>${r.lots_a == null ? "–" : `${r.lots_a} × ${esc(p.sym_a)} / ${r.lots_b} × ${esc(p.sym_b)}`}</dd>
+      <dt>notional</dt><dd>${inr(r.notional_exposure)}</dd><dt>margin</dt><dd>${inr(r.marginal_margin)}${r.floor_binds ? ' <span class="muted">(6% floor binds)</span>' : ""}</dd>
+      <dt>utilisation</dt><dd>${pct(r.utilisation_if_added, 1)}</dd><dt>SPAN change, 21 sessions</dt><dd>${pct(r.span_change_pct, 1)}</dd></dl>` : `<p class="muted">Not priced.</p>`}</div>
+  </section>`;
 };
 
 V.backtest = async () => {
-  const b = await get("/api/backtest"), p = b.performance;
-  return `<div class="banner" style="background:${b.verdict.edge_survives_costs ? "var(--green-bg);color:var(--green)" : "var(--amber-bg);color:var(--amber)"}"><b>${esc(b.verdict.headline)}</b></div>
-  <div class="grid k4" style="margin-bottom:16px">
-    <div class="card kpi"><div class="l">Trades</div><div class="v">${p.n_trades ?? 0}</div><div class="s">walk-forward, next-session fills</div></div>
-    <div class="card kpi"><div class="l">Gross per trade</div><div class="v">${n(p.mean_gross_bp, 1, true)} bp</div><div class="s">hit rate ${pct(p.hit_rate_gross, 0)}</div></div>
-    <div class="card kpi"><div class="l">Net per trade</div><div class="v ${p.mean_net_bp > 0 ? "ok" : "bad"}">${n(p.mean_net_bp, 1, true)} bp</div><div class="s">after fees, taxes, slippage</div></div>
-    <div class="card kpi"><div class="l">Peak margin</div><div class="v" style="font-size:22px;margin:10px 0 6px">${inr(p.peak_margin)}</div><div class="s">return on margin ${pct(p.ann_return_on_margin, 2)} a year</div></div></div>
-  <div class="card"><h3>Trades</h3><div class="tw"><table><tr><th>Pair</th><th>Entry</th><th>Exit</th><th class="num">Lots</th><th class="num">Entry z</th><th class="num">Gross</th><th class="num">Net</th><th>Exit reason</th></tr>
-  ${b.trades.map(t => `<tr><td><b>${esc(t.pair)}</b></td><td>${fdate(t.entry_date)}</td><td>${fdate(t.exit_date)}</td><td class="num">${t.lots_a} / ${t.lots_b}</td><td class="num">${n(t.entry_z)}</td>
-    <td class="num">${n(t.gross_bp, 1, true)} bp</td><td class="num ${t.net_bp > 0 ? "ok" : "bad"}">${n(t.net_bp, 1, true)} bp</td><td>${esc(t.exit_reason)}</td></tr>`).join("") || '<tr><td colspan="8" class="muted">No trades.</td></tr>'}</table></div>
-  ${p.tstat_caveat ? `<div class="muted" style="margin-top:10px;font-size:13px">${esc(p.tstat_caveat)}</div>` : ""}</div>`;
+  const [R, B] = await Promise.all([once("/api/research"), once("/api/backtest")]), p = B.performance || {};
+  const eq = (R.equity || []).filter(x => fin(x.equity));
+  return `<section class="hero"><h1>${esc(B.verdict.headline)}</h1>
+    <p class="lede">Walk-forward over ${fdate(R.window.start)} to ${fdate(R.window.end)}. Whole lots, fine-gram neutral legs, daily cash margin with forced exits, nothing held into tender.</p>
+    <div class="tiles">
+      <div class="tile"><div class="l">Trades</div><div class="v">${p.n_trades ?? 0}</div><div class="s">avg ${num(p.mean_sessions_held, 1)} sessions held</div></div>
+      <div class="tile"><div class="l">Net P&amp;L</div><div class="v ${p.net_pnl < 0 ? "neg" : "posv"}">${lakh(p.net_pnl)}</div><div class="s">gross ${lakh(p.gross_pnl)}, costs ${lakh(p.total_cost)}</div></div>
+      <div class="tile"><div class="l">Sharpe</div><div class="v">${num(p.sharpe)}</div><div class="s">annualised</div></div>
+      <div class="tile"><div class="l">Max drawdown</div><div class="v neg">${lakh(p.max_drawdown_inr)}</div><div class="s">peak margin ${lakh(p.peak_margin)}</div></div>
+    </div></section>
+  ${eq.length ? `<section class="card"><header><h2>Cumulative net P&amp;L</h2><p>After all costs, marked to market daily. ₹ lakh.</p></header>
+    ${lineChart([{name: "net P&L", color: "--s1", values: eq.map(x => [ms(x.date), x.equity])}], {W: 760, H: 280, xType: "date", xFmt: fmon, tipX: v => fdate(new Date(v).toISOString().slice(0, 10)), yFmt: v => (v / 1e5).toFixed(1), tipY: v => lakh(v), zero: true, aria: "Cumulative net profit and loss over time"})}</section>` : ""}
+  ${R.by_pair ? `<section class="card"><header><h2>By pair</h2></header><div class="tw"><table><tr><th>Pair</th><th class="num">Trades</th><th class="num">Gross per trade</th><th class="num">Net per trade</th><th class="num">Net hit rate</th><th class="num">Net P&amp;L</th></tr>
+    ${R.by_pair.map(r => `<tr><td><b>${esc(r.pair)}</b></td><td class="num">${r.n}</td><td class="num">${bp(r.gross_bp)}</td><td class="num ${r.net_bp < 0 ? "neg" : ""}">${bp(r.net_bp)}</td><td class="num">${pct(r.hit_rate_net)}</td><td class="num">${inr(r.net_pnl)}</td></tr>`).join("")}</table></div></section>` : ""}
+  <section class="card"><header><h2>Trades</h2><p>Most recent first.</p></header><div class="tw"><table><tr><th>Pair</th><th>Entry</th><th>Exit</th><th class="num">Lots</th><th class="num">Entry z</th><th class="num">Gross</th><th class="num">Net</th><th>Exit</th></tr>
+    ${(B.trades || []).map(t => `<tr><td><b>${esc(t.pair)}</b></td><td>${fdate(t.entry_date)}</td><td>${fdate(t.exit_date)}</td><td class="num">${t.lots_a} / ${t.lots_b}</td><td class="num">${num(t.entry_z)}</td><td class="num">${bp(t.gross_bp)}</td><td class="num ${t.net_bp < 0 ? "neg" : ""}">${bp(t.net_bp)}</td><td>${esc(t.exit_reason)}</td></tr>`).join("") || `<tr><td colspan="8" class="muted">No trades.</td></tr>`}</table></div>
+    ${p.tstat_caveat ? `<p class="note">${esc(p.tstat_caveat)}</p>` : ""}</section>`;
 };
 
-// ------------------------------------------------------------------ charts (SVG, no library)
-function lineChart(v, W, H) {
-  if (!v.length) return `<div class="muted">no data</div>`;
-  const pl = 62, pr = 10, pt = 10, pb = 22, mn = Math.min(...v), mx = Math.max(...v), rg = (mx - mn) || 1;
-  const X = i => pl + (W - pl - pr) * i / Math.max(1, v.length - 1), Y = x => pt + (H - pt - pb) * (mx - x) / rg;
-  const d = v.map((x, i) => (i ? "L" : "M") + X(i).toFixed(1) + "," + Y(x).toFixed(1)).join("");
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}">${[mn, (mn + mx) / 2, mx].map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="#EEF0F3"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="#6B7280">${Math.round(t).toLocaleString("en-IN")}</text>`).join("")}
-    <path d="${d} L${X(v.length - 1)},${H - pb} L${pl},${H - pb}Z" fill="#FDF3E6"/><path d="${d}" fill="none" stroke="#D97A1E" stroke-width="2"/></svg>`;
-}
-function bandChart(h, zE, W, H) {
-  const s = h.filter(x => x.spread_bp != null && x.centre != null && x.scale != null);
-  if (s.length < 2) return `<div class="muted">not enough history</div>`;
-  const pl = 54, pr = 12, pt = 10, pb = 24;
-  const ys = s.flatMap(x => [x.spread_bp, x.centre + zE * x.scale, x.centre - zE * x.scale]), mn = Math.min(...ys), mx = Math.max(...ys);
-  const X = i => pl + (W - pl - pr) * i / (s.length - 1), Y = v => pt + (H - pt - pb) * (mx - v) / ((mx - mn) || 1);
-  const up = s.map((x, i) => X(i).toFixed(1) + "," + Y(x.centre + zE * x.scale).toFixed(1)), lo = s.map((x, i) => X(i).toFixed(1) + "," + Y(x.centre - zE * x.scale).toFixed(1)).reverse();
-  const path = f => s.map((x, i) => (i ? "L" : "M") + X(i).toFixed(1) + "," + Y(f(x)).toFixed(1)).join("");
-  window._band = {s, X, W};
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" id="band">${[mn, (mn + mx) / 2, mx].map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="#EEF0F3"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="#6B7280">${t.toFixed(0)} bp</text>`).join("")}
-    <polygon points="${up.concat(lo).join(" ")}" fill="#EEF2F7"/><path d="${path(x => x.centre)}" fill="none" stroke="#9CA3AF" stroke-dasharray="5 5"/>
-    <path d="${path(x => x.spread_bp)}" fill="none" stroke="#2E6DA4" stroke-width="2"/>
-    ${s.map((x, i) => x.z != null && Math.abs(x.z) >= zE ? `<circle cx="${X(i)}" cy="${Y(x.spread_bp)}" r="${x.signal_ok ? 5 : 3.5}" fill="${x.signal_ok ? "#15803D" : "#D97A1E"}" stroke="#fff"/>` : "").join("")}
-    <text x="${pl}" y="${H - 6}" font-size="11" fill="#6B7280">${fdate(s[0].date)}</text><text x="${W - pr}" y="${H - 6}" font-size="11" fill="#6B7280" text-anchor="end">${fdate(s[s.length - 1].date)}</text></svg>
-    <div class="muted" style="font-size:12px;margin-top:4px"><span style="color:#15803D">●</span> unusual and all gates passed &nbsp; <span style="color:#D97A1E">●</span> unusual, a gate refused</div>`;
-}
+V.data = async () => {
+  const [R, q, h] = await Promise.all([once("/api/research"), once("/api/data-quality"), once("/api/health")]);
+  const flags = Object.entries(q.flags || {}).filter(([k]) => k !== "symbol_unknown_or_filtered");
+  return `<section class="hero"><h1>${(q.rows_out || 0).toLocaleString("en-IN")} validated contract-days</h1>
+    <p class="lede">From ${(q.rows_in || 0).toLocaleString("en-IN")} raw bhavcopy rows (all MCX commodities). Every problem becomes a flag on the row; nothing is silently dropped or repaired.</p></section>
+  <section class="card"><header><h2>Coverage</h2><p>GOLDTEN only lists from ${fdate((R.coverage || []).find(x => x.symbol === "GOLDTEN")?.first)}, so its pairs rest on much less history.</p></header><div class="tw"><table>
+    <tr><th>Contract</th><th>First</th><th>Last</th><th class="num">Sessions</th><th class="num">Expiries</th><th class="num">No-trade or derived settles</th></tr>
+    ${(R.coverage || []).map(c => `<tr><td><b>${esc(c.symbol)}</b></td><td>${fdate(c.first)}</td><td>${fdate(c.last)}</td><td class="num">${c.sessions.toLocaleString("en-IN")}</td><td class="num">${c.contracts}</td><td class="num">${(c.untradeable_rows ?? 0).toLocaleString("en-IN")}</td></tr>`).join("")}
+  </table></div></section>
+  <section class="grid2">
+    <div class="card"><header><h2>Flags raised</h2><p>Rows kept and marked, so results can say how much data they stand on.</p></header><table>
+      ${flags.map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="num">${Number(v).toLocaleString("en-IN")}</td></tr>`).join("") || `<tr><td class="muted">none</td></tr>`}</table></div>
+    <div class="card"><header><h2>Provenance</h2></header><dl class="kv">
+      <dt>source</dt><dd>${esc(h.source)}${h.source === "csv" ? " (MCX bhavcopy via mtf.trading)" : ""}</dd>
+      <dt>as of</dt><dd>${fdate(h.asof)}</dd><dt>built</dt><dd>${esc(new Date(h.generated_at).toLocaleString("en-IN", {dateStyle: "medium", timeStyle: "short"}))}</dd>
+      <dt>run</dt><dd class="mono">${esc(q.run_id)}</dd><dt>input hash</dt><dd class="mono" style="word-break:break-all">${esc(q.data_fingerprint)}</dd>
+      <dt>margin parameters</dt><dd>${esc(R.meta.span_parameters)}</dd></dl>
+      <p class="note">Margin figures use assumed SPAN parameters until real MCXCCL risk files are loaded with scripts/load_risk_params.py.</p></div>
+  </section>`;
+};
 
 // ------------------------------------------------------------------ router
-const TITLES = {overview: "Overview", pairs: "Pairs", pair: "Pair detail", decisions: "Decision log", risk: "Risk & margin", data: "Data quality", backtest: "Backtest"};
 async function render() {
-  const [r, arg] = (location.hash.replace("#/", "") || "overview").split("/");
-  const route = V[r] ? r : "overview";
-  $("#ttl").textContent = TITLES[route];
-  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === route || (route === "pair" && a.dataset.r === "pairs")));
+  const [r, arg] = (location.hash.replace("#/", "") || "findings").split("/");
+  const route = V[r] ? r : "findings";
+  document.querySelectorAll("#nav a").forEach(a => {
+    const on = a.dataset.r === route || (route === "pair" && a.dataset.r === "today");
+    a.classList.toggle("on", on); on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
+  });
+  hideTip();
+  for (const k in CHARTS) delete CHARTS[k];
   try { $("#view").innerHTML = await V[route](arg); }
-  catch (e) { $("#view").innerHTML = `<div class="err"><b>Could not load ${esc(route)}.</b><br>${esc(e.message)}<br><span class="muted">API: ${esc(API || location.origin)}</span></div>`; }
+  catch (e) { $("#view").innerHTML = `<div class="err"><b>Could not load this view.</b><br>${esc(e.message)}<br><span class="note">API: ${esc(API || location.origin)}. If no snapshot exists yet, run scripts/nightly.py.</span></div>`; }
+  scrollTo(0, 0);
 }
 async function boot() {
   try {
-    const h = await get("/api/health");
-    if (!h.ok) throw new Error(h.reason);
-    $("#runinfo").innerHTML = `run <span class="mono">${esc(h.run_id)}</span> · built ${new Date(h.generated_at).toLocaleString("en-IN", {dateStyle: "medium", timeStyle: "short"})}`;
-    $("#foot").innerHTML = `Source: ${esc(h.source)}<br>As of ${fdate(h.asof)}<br>Rule-based engine; no AI in the decision`;
-    const p = $("#srcpill"); p.hidden = false;
-    p.textContent = h.sample_data ? "SAMPLE DATA" : "MCX DATA";
-    p.style.cssText = h.sample_data ? "background:var(--gold-bg);color:var(--gold-t)" : "background:var(--green-bg);color:var(--green)";
-    const ov = await get("/api/overview");
-    if (ov.summary.ALERT) { const c = $("#ncnt"); c.hidden = false; c.textContent = ov.summary.ALERT; }
-  } catch (e) { $("#foot").textContent = "API unreachable: " + e.message; }
+    const h = await once("/api/health");
+    const pill = h.sample_data ? `<span class="pill sample">sample data</span>` : `<span class="pill real">MCX data</span>`;
+    $("#meta").innerHTML = `${pill}<span>as of ${esc(fdate(h.asof))}</span><span class="mono">${esc(h.run_id)}</span>`;
+  } catch (e) { $("#meta").textContent = "API unreachable: " + e.message; }
   render();
 }
-window.addEventListener("hashchange", render);
-document.addEventListener("click", e => {
-  const a = e.target.closest("[data-r]"); if (a) { location.hash = "#/" + a.dataset.r; return; }
-  const g = e.target.closest("[data-go]"); if (g) location.hash = "#/" + g.dataset.go;
-});
-const tip = $("#tip");
-document.addEventListener("mousemove", e => {
-  const t = e.target.closest("[data-tip]");
-  if (t) { tip.innerHTML = t.dataset.tip; tip.style.display = "block"; tip.style.left = e.clientX + 14 + "px"; tip.style.top = e.clientY + 12 + "px"; }
-  else tip.style.display = "none";
-});
+addEventListener("hashchange", render);
+document.addEventListener("click", e => { const g = e.target.closest("[data-go]"); if (g) location.hash = "#/" + g.dataset.go; });
+document.addEventListener("keydown", e => { if (e.key === "Enter") { const g = e.target.closest && e.target.closest("tr[data-go]"); if (g) location.hash = "#/" + g.dataset.go; } });
 boot();
 </script>
 </body>
