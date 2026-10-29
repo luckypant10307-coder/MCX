@@ -225,6 +225,7 @@ def engine_parameters(result) -> list[dict]:
     """The settings the run actually used, each with what it does. Read-only."""
     from mcxrv.backtest import BacktestConfig
     from mcxrv.carry import CarryConfig
+    from mcxrv.risk import RiskBoardConfig
     sc, bc, cc = SignalConfig(z_entry=result.config.z_entry), BacktestConfig(), CarryConfig()
     return [
         {"group": "Signal", "name": "Unusual if |z| ≥", "value": sc.z_entry, "unit": "",
@@ -254,7 +255,53 @@ def engine_parameters(result) -> list[dict]:
          "what": "Cash available for margin and daily mark-to-market."},
         {"group": "Capital", "name": "Notional per leg", "value": bc.target_notional_per_leg, "unit": "₹",
          "what": "Target size of each leg before rounding to whole lots."},
+        {"group": "Risk limits", "name": "Drawdown kill switch", "value": 100 * RiskBoardConfig().max_drawdown_pct,
+         "unit": "% of capital", "what": "Below the peak account value by this much, no new exposure until a person reviews it."},
+        {"group": "Risk limits", "name": "Block new exposure at", "value": 100 * RiskBoardConfig().utilisation_block,
+         "unit": "% of capital", "what": "Margin used if the trade were added; above this the board refuses."},
+        {"group": "Risk limits", "name": "Warn at", "value": 100 * RiskBoardConfig().utilisation_warn,
+         "unit": "% of capital", "what": "Margin used above this: add at reduced size."},
+        {"group": "Risk limits", "name": "Margin regime block", "value": 100 * RiskBoardConfig().span_rise_block_pct,
+         "unit": "% rise", "what": "SPAN requirement up this much over a month: the market is getting riskier, so no new exposure."},
     ]
+
+
+# ---------------------------------------------------------------- anomaly review
+ANOMALY_TOP = 30
+
+
+def anomaly_review(result) -> dict:
+    """
+    The Isolation Forest review queue, for a human. It never gates data or trades:
+    the forest is fit on the whole sample, which is fine for an audit and would be
+    look-ahead if it filtered a backtest (see mcxrv/stage1_intake/anomaly.py).
+    """
+    from mcxrv import anomaly as an
+    rows = result.rows
+    if not an.available():
+        return {"available": False, "reason": "scikit-learn is not installed"}
+    if rows is None or rows.empty:
+        return {"available": False, "reason": "no rows to score"}
+    det = an.detect(rows)
+    if det.empty:
+        return {"available": False, "reason": "too few rows for the detector"}
+    flagged = det[det["is_anomaly"]]
+    top = an.top_reasons(det, n=ANOMALY_TOP)
+    return clean({
+        "available": True,
+        "rows_scored": int(len(det)),
+        "flagged": int(len(flagged)),
+        "flagged_new": int((~flagged["rule_flagged"]).sum()),
+        "flagged_known": int(flagged["rule_flagged"].sum()),
+        "by_symbol": _records(an.summary(det), ["symbol", "rows", "flagged", "flag_rate",
+                                                "flagged_already_known", "flagged_new"]),
+        "by_feature": (flagged[~flagged["rule_flagged"]].groupby("top_feature").size()
+                       .sort_values(ascending=False).rename("n").reset_index()
+                       .to_dict("records")),
+        "top": _records(top, ["date", "symbol", "contract_id", "score", "top_feature",
+                              "top_z", "log_ret", "peer_dev_bp", "ret_in_ticks",
+                              "d_log_volume"]),
+    })
 
 
 # ---------------------------------------------------------------- research
@@ -585,6 +632,8 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
         "research": research(result),
         "archive": archive,
         "parameters": engine_parameters(result),
+        "account": clean((result.notes or {}).get("account") or {}),
+        "anomalies": anomaly_review(result),
     }
     snap["meta"]["decision_window_sessions"] = (
         min(DECISION_LOG_SESSIONS, int(pairs["date"].nunique()))

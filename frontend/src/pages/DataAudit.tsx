@@ -1,11 +1,55 @@
-import { useDataQuality, useHealth, useResearch } from "../api";
-import { fdate, int, ist } from "../format";
+import { useAnomalies, useDataQuality, useHealth, useResearch, type Anomalies } from "../api";
+import { fdate, fexp, fin, int, ist, num, pct } from "../format";
 import { Card, Chip, Kpi, Loaded } from "../components/ui";
+
+// What each detector feature means to a person reading the queue.
+const FEATURE: Record<string, string> = {
+  ret_in_ticks: "price jump, measured in ticks", ret_vs_peers_bp: "moved unlike the other contracts",
+  peer_dev_bp: "price far from the other contracts", log_ret: "unusually large daily move",
+  range_frac: "unusually wide high–low range", close_in_range: "close at an odd point in the day's range",
+  d_log_volume: "volume jumped or collapsed", d_log_oi: "open interest jumped or collapsed", resid_bp: "large model residual",
+};
+
+function AnomalyReview({ a }: { a: Anomalies }) {
+  if (!a.available) return <Card title="Anomaly review"><p className="note">Not available: {a.reason}.</p></Card>;
+  const top = a.top ?? [];
+  return (
+    <Card title="Anomaly review queue" note="Isolation Forest · for a person to look at · never blocks data or trades">
+      <div className="row" style={{ gap: 28 }}>
+        <div><div className="sub">rows scored</div><b style={{ fontSize: 22 }}>{int(a.rows_scored)}</b></div>
+        <div><div className="sub">flagged</div><b style={{ fontSize: 22 }}>{int(a.flagged)}</b> <span className="sub">{pct((a.flagged ?? 0) / (a.rows_scored || 1), 1)}</span></div>
+        <div><div className="sub">missed by the rule checks</div><b className="c-warn" style={{ fontSize: 22 }}>{int(a.flagged_new)}</b></div>
+        <div><div className="sub">already flagged by a rule</div><b style={{ fontSize: 22 }}>{int(a.flagged_known)}</b></div>
+      </div>
+      <div className="row" style={{ gap: 10 }}>
+        {(a.by_feature ?? []).map((f) => <span key={f.top_feature} className="chip QUIET">{FEATURE[f.top_feature] ?? f.top_feature} · {f.n}</span>)}
+      </div>
+      <div className="tw"><table>
+        <thead><tr><th>Date</th><th>Contract</th><th>What looks odd</th><th className="num">Day move</th><th className="num">vs peers</th><th className="num">Volume change</th><th className="num">Score</th></tr></thead>
+        <tbody>{top.map((r) => (
+          <tr key={r.contract_id + r.date}>
+            <td className="nw">{fdate(r.date)}</td>
+            <td className="nw"><b>{r.symbol}</b> <span className="sub">{fexp(r.contract_id.split("|")[1])}</span></td>
+            <td>{FEATURE[r.top_feature] ?? r.top_feature}<div className="sub">{num(r.top_z, 1)} standard deviations from normal</div></td>
+            <td className="num">{fin(r.log_ret) ? pct(Math.expm1(r.log_ret), 1) : "–"}</td>
+            <td className="num">{fin(r.peer_dev_bp) ? `${num(r.peer_dev_bp, 0)} bp` : "–"}</td>
+            <td className="num">{fin(r.d_log_volume) ? pct(Math.expm1(r.d_log_volume), 0) : "–"}</td>
+            <td className="num">{num(r.score, 3)}</td>
+          </tr>))}
+        </tbody>
+      </table></div>
+      <p className="note">Showing the {top.length} most unusual rows the rule checks did not already catch, most unusual first (lower score = stranger).
+        A flag is a question, not a verdict: a genuine market shock looks exactly like a bad print until someone checks it. The detector is fit on the whole sample,
+        which is fine for an audit but would be look-ahead in a backtest, so it never filters anything.</p>
+    </Card>
+  );
+}
 
 export default function DataAudit() {
   const q = useDataQuality();
   const h = useHealth();
   const r = useResearch();
+  const an = useAnomalies();
   return (
     <Loaded q={q}>{(d) => {
       const a = d.archive;
@@ -32,6 +76,7 @@ export default function DataAudit() {
             </table></div>
           </Card>
         ) : <section className="card"><p className="lede">No download log: this run did not read a directory of bhavcopy files (source: {h.data?.source}).</p></section>}
+        {an.data && <AnomalyReview a={an.data} />}
         <div className="grid2">
           <Card title="Coverage" note="per contract family">
             <div className="tw"><table>
