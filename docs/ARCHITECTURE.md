@@ -392,6 +392,10 @@ It proves timing, not that a signal was right.
 
 ## 10. Deployment
 
+Live at **[mcx-iefc.onrender.com](https://mcx-iefc.onrender.com)** (Render, free plan;
+sign-in required, sign-up by invitation). `GET /api/health` is public and returns the
+session the site is showing.
+
 ```mermaid
 flowchart LR
     subgraph IMG["Docker image (Render)"]
