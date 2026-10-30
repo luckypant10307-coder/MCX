@@ -1,5 +1,8 @@
 # MCX Gold Spread Monitor
 
+**Live site: [mcx-iefc.onrender.com](https://mcx-iefc.onrender.com)** · sign-up is by
+invitation; the free host sleeps when idle, so the first visit can take up to a minute.
+
 MCX lists four gold futures that are, underneath, the same metal: GOLDM (100 g),
 GOLDTEN (10 g), GOLDGUINEA (8 g coin) and GOLDPETAL (1 g). Their prices should move
 together once you put them on the same footing. This project checks every evening
@@ -9,8 +12,6 @@ gaps would actually have made money.
 **Short answer: the gaps are real and they do close, but not by enough to pay for
 trading them.** Over 146 simulated trades on real MCX data (Jan 2022 – Oct 2026),
 the average trade made +17.5 bp before costs and **−5.3 bp after costs**.
-
-Live dashboard: <https://mcx-iefc.onrender.com> (sign-in required).
 
 **For reviewers:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the tech stack, the
 full architecture, the engine stages, the nightly workflow, the data model and the
