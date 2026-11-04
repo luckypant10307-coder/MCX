@@ -101,13 +101,23 @@ def failed_gates(row) -> list[str]:
     return [GATE_LABELS[g] for g in GATE_LABELS if g in row and not bool(row[g])]
 
 
-def decide(pair_row, board_row, z_entry: float) -> dict:
-    """One pair, one session -> {status, reason}. Pure; tested directly."""
+def decide(pair_row, board_row, z_entry: float, edge: dict | None = None,
+           cost_gate: bool = False) -> dict:
+    """
+    One pair, one session -> {status, reason}. Pure; tested directly.
+
+    With `cost_gate`, a pair that clears every other gate but whose expected profit
+    does not beat its cost (edge_gate.edge_check, the backtest's own rule) is WATCH:
+    worth looking at, not worth trading.
+    """
     z = pair_row.get("z")
     unusual = z is not None and np.isfinite(z) and abs(z) >= z_entry
     if bool(pair_row.get("signal_ok")):
         action = board_row.get("action") if board_row is not None else None
         if action in ADDABLE:
+            if cost_gate and edge is not None and not edge.get("ok"):
+                return {"status": "WATCH", "reason": edge.get("reason") or "below the cost hurdle",
+                        "binding_gate": "cost"}
             return {"status": "ALERT", "reason": "all gates passed; " + str(action),
                     "binding_gate": None}
         reason = (board_row or {}).get("reason") or "risk board unavailable"
@@ -179,6 +189,44 @@ def suggested_trade(p: dict, legs: dict) -> dict | None:
     return {"legs": [leg(sell, "SELL"), leg(buy, "BUY")],
             "residual_frac": risk.get("residual_frac"),
             "margin": risk.get("marginal_margin")}
+
+
+def live_edge(pair_row: dict, board_row: dict | None, liq: dict, gate_cfg, cost_cfg,
+              illiquid_exit_mult: float = 3.0) -> dict | None:
+    """
+    The cost hurdle for the trade the risk board would put on today, priced the way
+    the backtest prices an entry: these contracts, these lots, entry cost on both
+    legs plus an exit estimate widened on a leg that is already untradable.
+    """
+    from mcxrv.stage3_gates_decision import edge_gate
+    b = board_row or {}
+    ca, cb, la, lb = b.get("contract_a"), b.get("contract_b"), b.get("lots_a"), b.get("lots_b")
+    ra, rb = liq.get(ca) or {}, liq.get(cb) or {}
+    if not (ca and cb and la and lb) or ra.get("close") is None or rb.get("close") is None:
+        return None
+    z = pair_row.get("z")
+    if z is None or not np.isfinite(z):
+        return None
+    d = -1 if z > 0 else 1                      # +1: spread too low -> buy a, sell b
+
+    def mult(sym):
+        sp = specs.get(sym)
+        return sp.trading_unit_g / sp.quote_base_g
+    na = abs(ra["close"] * mult(pair_row["sym_a"]) * la)
+    nb = abs(rb["close"] * mult(pair_row["sym_b"]) * lb)
+    side_a, side_b = ("buy", "sell") if d > 0 else ("sell", "buy")
+    flip = {"buy": "sell", "sell": "buy"}
+
+    def leg(n, side, row, lots, closing):
+        hs = float(row.get("half_spread_bp") or 0.0)
+        if closing and not row.get("tradable", True):
+            hs *= illiquid_exit_mult
+        return costs.leg_cost_inr(n, side, hs, lots, max(row.get("max_lots") or 1, 1), cost_cfg)["total_inr"]
+    entry = leg(na, side_a, ra, la, False) + leg(nb, side_b, rb, lb, False)
+    exit_cost = leg(na, flip[side_a], ra, la, True) + leg(nb, flip[side_b], rb, lb, True)
+    return edge_gate.edge_check(z, pair_row.get("scale"), pair_row.get("halflife"),
+                                b.get("sessions_a"), b.get("sessions_b"), entry, exit_cost, na,
+                                gate_cfg)
 
 
 def trade_cost(p: dict, liq: dict, cost_cfg: costs.CostConfig | None = None) -> dict | None:
@@ -447,7 +495,8 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
         liq = {}
         if result.rows is not None and not result.rows.empty:
             lr = result.rows[result.rows["date"] == result.rows["date"].max()]
-            cols = [c for c in ("tradable", "half_spread_bp", "close", "max_lots") if c in lr.columns]
+            cols = [c for c in ("tradable", "half_spread_bp", "close", "max_lots",
+                                "sessions_to_expiry") if c in lr.columns]
             liq = lr.set_index("contract_id")[cols].to_dict("index")
         recent = set(sorted(q["date"].unique())[-LIQ_AVG_SESSIONS:])
         avg_vol = (q[q["date"].isin(recent)].groupby("contract_id")["volume"].mean()
@@ -477,12 +526,17 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
     brd = {}
     if board is not None and not board.empty:
         brd = {r["pair"]: r for r in board.to_dict("records")}
-    latest_pairs, counts = [], {"ALERT": 0, "NO_TRADE": 0, "QUIET": 0}
+    latest_pairs, counts = [], {"ALERT": 0, "WATCH": 0, "NO_TRADE": 0, "QUIET": 0}
+    notes = result.notes or {}
+    gate_on = bool(notes.get("cost_gate"))
     if pairs is not None and not pairs.empty:
         lp = pairs[pairs["date"] == pairs["date"].max()]
         for r in lp.to_dict("records"):
             b = brd.get(r["pair"])
-            d = decide(r, b, z_entry)
+            edge = (live_edge(r, b, liq, notes.get("edge_gate"),
+                              notes.get("cost_cfg") or costs.CostConfig())
+                    if b is not None else None)
+            d = decide(r, b, z_entry, edge=edge, cost_gate=gate_on)
             counts[d["status"]] += 1
             latest_pairs.append(clean({
                 "pair": r["pair"], "sym_a": r["sym_a"], "sym_b": r["sym_b"],
@@ -494,6 +548,8 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
                 "gates": {g: bool(r.get(g)) for g in GATE_LABELS},
                 "signal_ok": r.get("signal_ok"), "direction": r.get("direction"),
                 **d,
+                "edge": None if edge is None else {k: edge[k] for k in (
+                    "exp_gross_bp", "cost_bp", "exp_net_bp", "ok", "reason")},
                 "risk": None if b is None else {
                     k: b.get(k) for k in (
                         "action", "reason", "contract_a", "contract_b", "sessions_a",
@@ -531,7 +587,7 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
                         n_sessions, need),
                     "binding_gate": "history", "risk": None,
                 }))
-    order = {"ALERT": 0, "NO_TRADE": 1, "QUIET": 2, "WARMUP": 3}
+    order = {"ALERT": 0, "WATCH": 1, "NO_TRADE": 2, "QUIET": 3, "WARMUP": 4}
     latest_pairs.sort(key=lambda p: (order[p["status"]], -abs(p["z"] or 0)))
 
     # What a reader needs beside the numbers: which contracts, how far apart their
@@ -568,7 +624,7 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
         except (TypeError, KeyError, ValueError):
             p["expiry_gap_days"] = None
         p["trade"] = (clean(suggested_trade(p, pair_legs))
-                      if p["status"] in ("ALERT", "NO_TRADE") else None)
+                      if p["status"] in ("ALERT", "WATCH", "NO_TRADE") else None)
         p["cost"] = clean(trade_cost(p, liq))
         p["telegram"] = (_notify.format_message({"kind": "new_alert", "pair_state": p}, meta_for_msg)
                          if p["status"] == "ALERT" else None)

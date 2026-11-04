@@ -66,6 +66,11 @@ The trades lose to costs, not to the gaps. Two fixes were tested, each chosen on
   than the simple rule, so it is not used.
 - **Trading only the widest gaps (|z| ≥ 3).** Positive on 2025–2026 (+4.2 bp, 64
   trades) but losing on 2022–2024, where the rule had to be chosen. **Not proven.**
+- **A cost hurdle from each gap's half-life**, shared by alerts and backtest. Refused
+  almost nothing and did not improve results, so it is off.
+- **Brokerage matters most.** With discount-broker charges (₹20 or 0.03% an order,
+  how Zerodha charges MCX) the average trade is about break-even (+5.4 bp 2022–24,
+  +1.1 bp 2025–26), but the 95% ranges include zero by a wide margin: not an edge.
 
 What changed as a result: every pair now shows the round-trip cost of its trade next
 to its gap, and a **forward test** of |z| ≥ 3, fixed on 4 November 2026, runs every

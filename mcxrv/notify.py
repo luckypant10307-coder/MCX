@@ -154,7 +154,7 @@ def digest(prev: dict | None, new: dict, max_lines: int = 8) -> str | None:
             old.get("data_fingerprint") == meta.get("data_fingerprint"):
         return None
 
-    refused = [p for p in new.get("pairs", []) if p.get("status") == "NO_TRADE"]
+    refused = [p for p in new.get("pairs", []) if p.get("status") in ("NO_TRADE", "WATCH")]
     an = new.get("anomalies") or {}
     flags = [a for a in (an.get("latest") or []) if str(a.get("date")) == str(meta.get("asof"))]
     if not refused and not flags:

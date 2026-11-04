@@ -24,7 +24,7 @@ async function get<T>(path: string): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-export type Status = "ALERT" | "NO_TRADE" | "QUIET" | "WARMUP";
+export type Status = "ALERT" | "WATCH" | "NO_TRADE" | "QUIET" | "WARMUP";
 
 export interface Meta {
   asof: string; generated_at: string; source: string; run_id: string; sample_data: boolean;
@@ -54,6 +54,7 @@ export interface Pair {
   direction: number | null; status: Status; reason: string; risk?: Risk | null; legs?: Leg[];
   expiry_gap_days?: number | null; trade?: { legs: TradeLeg[]; margin?: number; residual_frac?: number } | null;
   telegram?: string | null;
+  edge?: { exp_gross_bp: number | null; cost_bp: number | null; exp_net_bp: number | null; ok: boolean; reason: string } | null;
   cost?: { gap_bp: number; round_trip_bp: number; spread_cost_bp: number; charges_bp: number;
            gap_after_cost_bp: number; covers_cost: boolean; notional_per_leg: number } | null;
 }

@@ -28,7 +28,9 @@ compares four MCX gold futures (GOLDM 100 g, GOLDTEN 10 g, GOLDGUINEA 8 g, GOLDP
 after converting each to rupees per 10 g of fine gold and removing normal carry between
 expiries. Each of six pairs gets a z-score; beyond +/-2 is unusual. An unusual pair is an
 ALERT only if every gate passes (time to expiry, liquidity, costs, margin, risk board,
-kill switch); otherwise NO_TRADE with the failed gate named. QUIET means inside +/-2.
+kill switch); otherwise NO_TRADE with the failed gate named. WATCH (only when the cost
+hurdle is switched on) means every gate passed but the expected profit does not beat the
+trade's cost by the hurdle. QUIET means inside +/-2.
 WARMUP means not enough history yet.
 
 Rules:

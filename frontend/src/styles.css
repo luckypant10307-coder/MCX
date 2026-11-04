@@ -132,6 +132,7 @@ button { font: inherit; color: inherit; }
 .chip.NO_TRADE, .chip.YELLOW, .chip.SIGNAL { color: var(--warn); }
 .chip.RED, .chip.REJECTED_DATE, .chip.UNREADABLE, .chip.bad { color: var(--bad); }
 .chip.QUIET, .chip.WARMUP { color: var(--quiet); }
+.chip.WATCH { color: var(--gold); }
 
 /* ---------------- tables ---------------- */
 .tw { overflow-x: auto; margin: 0 -6px; padding: 0 6px; }

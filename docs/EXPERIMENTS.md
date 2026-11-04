@@ -61,7 +61,58 @@ threshold loses and the current one loses least. Picking |z| ≥ 3 because it lo
 on 2025–26 would be choosing the rule after seeing the answer. 64 trades at +4.2 bp is
 also small enough to be luck.
 
-## 3. What was kept
+## 3. A cost hurdle from the gap's own half-life
+
+*Run on 4 November 2026. Settings fixed before running and not tuned: haircut 0.7,
+gain at least 1.5x cost, at least 5 bp net.*
+
+[`edge_gate.edge_check`](../mcxrv/stage3_gates_decision/edge_gate.py) projects how far
+the gap closes before the trade must end, if it decays at its measured half-life:
+
+    expected gross = (|z| - 0.5) x scale x (1 - 0.5 ^ (H / half-life)) x 0.7
+
+and compares it with this trade's entry cost plus an estimated exit cost (wider on a
+leg that is already untradable). The same function decides the backtest's entries
+and, when switched on, the live alerts, where a pair that fails it is shown as WATCH.
+
+Mean bp per trade, with a 95% moving-block bootstrap interval (blocks of 5 trades in
+entry order; 2,000 resamples):
+
+| Brokerage | Gate | 2022–24 net | 2025–26 net |
+|---|---|---|---|
+| floor (2 bp, ₹20 minimum) | off | −2.1 [−18.5, +11.9], 62 trades | −7.6 [−35.6, +23.6], 84 |
+| floor | on | −3.0 [−21.8, +12.0], 54 | −8.2 [−37.0, +22.7], 83 |
+| cap (0.03% or ₹20, lower) | off | **+5.4** [−11.0, +19.4], 62 | **+1.1** [−26.8, +32.4], 84 |
+| cap | on | +6.3 [−12.2, +22.1], 57 | +1.1 [−26.1, +32.2], 84 |
+
+**The hurdle does not help.** It refuses 8 trades in 2022–24 and 1 in 2025–26, and
+the net does not improve. Its expected value does not rank trades either: split into
+thirds by expected net (cut points from 2022–24), the top third did worst in 2022–24
+(−13.9 bp) and best in 2025–26 (−0.8 bp), the opposite order. **It stays switched
+off** (`PipelineConfig.cost_gate = False`).
+
+**Brokerage matters more than any entry rule.** "Floor" charges about 8 bp of
+brokerage per round trip; "cap", which is how discount brokers such as Zerodha charge
+MCX futures (confirmed by Kite Connect's contract-note example), charges under 2 bp.
+Under "cap" the average trade is slightly positive, but every interval includes zero
+by a wide margin: it is indistinguishable from breaking even, not an edge.
+
+Where the money goes (floor brokerage, gate off, all years): trades that converged
+made +29.9 bp (47 trades); stops lost −22.2 bp (75) and expiry exits −21.3 bp (24).
+GOLDGUINEA/GOLDPETAL lost −20.9 bp a trade (35); only GOLDM/GOLDGUINEA was positive
+(+6.2 bp, 44). The bid/ask estimate fell from 16 bp a trade in 2022–24 to 5 bp in
+2025–26 as volumes grew.
+
+Half-spread sensitivity, reported and not chosen from (floor brokerage, net bp):
+
+| Half-spread × | Gate off 2022–24 | Gate off 2025–26 | Gate on 2022–24 | Gate on 2025–26 |
+|---|---|---|---|---|
+| 0.5 | +0.6 | −6.4 | +0.2 | −6.6 |
+| 1.0 | −2.1 | −7.6 | −3.0 | −8.2 |
+| 1.5 | −4.8 | −8.8 | −8.0 | −9.4 |
+| 2.0 | −7.6 | −10.1 | −9.5 | −10.3 |
+
+## 4. What was kept
 
 - **Cost on every alert.** Each pair now shows the round-trip cost of the trade the
   risk board would put on, next to the gap: two measured numbers, no model. On
@@ -79,6 +130,7 @@ also small enough to be luck.
 python scripts/fetch_mtf.py
 python scripts/experiments/edge_experiment.py     # section 1
 python scripts/experiments/zentry_experiment.py   # section 2
+python scripts/experiments/cost_hurdle_eval.py    # section 3
 ```
 
 Numbers will move slightly as new sessions are added.

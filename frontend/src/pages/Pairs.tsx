@@ -24,7 +24,7 @@ export default function Pairs() {
       const ze = ov.data?.meta.z_entry ?? 2;
       const s = ov.data?.summary;
       return (<>
-        {s && <section className="card"><p className="lede"><b>{fdate(ov.data?.meta.asof)}:</b> {s.ALERT} alert, {s.NO_TRADE} no-trade, {s.QUIET} quiet
+        {s && <section className="card"><p className="lede"><b>{fdate(ov.data?.meta.asof)}:</b> {s.ALERT} alert,{s.WATCH ? ` ${s.WATCH} watch,` : ""} {s.NO_TRADE} no-trade, {s.QUIET} quiet
           {s.WARMUP ? `, ${s.WARMUP} warming up` : ""}. The normal gap is each pair's own trailing centre, which already contains carry between expiries
           and each coin's premium; only the extra is scored.</p></section>}
         <section className="card"><div className="tw"><table>
