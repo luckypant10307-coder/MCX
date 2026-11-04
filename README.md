@@ -9,9 +9,11 @@ together once you put them on the same footing. This project checks every evenin
 whether any pair has drifted apart more than usual, and tests whether trading those
 gaps would actually have made money.
 
-**Short answer: the gaps are real and they do close, but not by enough to pay for
-trading them.** Over 146 simulated trades on real MCX data (Jan 2022 – Oct 2026),
-the average trade made +17.5 bp before costs and **−5.3 bp after costs**.
+**Short answer: the gaps are real and they do close, but after costs trading them
+only about breaks even.** Over 146 simulated trades on real MCX data (Jan 2022 –
+Oct 2026), the average trade made +17.6 bp before costs and **+2.9 bp after costs**
+with discount-broker charges, with a likely range of −14.6 to +20.4 bp: not a
+reliable edge. With full-service brokerage the same trades lose −5.3 bp.
 
 **For reviewers:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the tech stack, the
 full architecture, the engine stages, the nightly workflow, the data model and the
@@ -42,22 +44,30 @@ notification and assistant flows, as diagrams with explanations.
 
 ## Results (real data)
 
+Costs use discount-broker brokerage (₹20 or 0.03% an order, whichever is lower: how
+Zerodha charges MCX futures). Full-service brokerage in brackets.
+
 | | |
 |---|---|
 | Trades | 146 |
-| Average per trade, before costs | +17.5 bp |
-| Average per trade, after costs | **−5.3 bp** |
-| Winning trades, after costs | 47 % |
-| Costs as share of gross profit | 152 % |
+| Average per trade, before costs | +17.6 bp |
+| Average per trade, after costs | **+2.9 bp** (−5.3 bp) |
+| Likely range of that average (±2 standard errors) | −14.6 to +20.4 bp |
+| Winning trades, after costs | 51 % (47 %) |
+| Costs as share of gross profit | 86 % (152 %) |
+| Net over 4.8 years on ₹10 lakh | +₹27,018 (−₹99,668) |
 | Peak margin blocked | ₹8.98 lakh |
-| Return on margin, per year | −2.3 % |
+| Return on margin, per year | +0.6 % (−2.3 %) |
 
-The edge needs costs below about 1.1 bp per side to break even; realistic MCX costs
-are several times that.
+Costs averaged about 14.7 bp a round trip over the backtest: bid/ask and impact
+were about 16 bp in 2022–24, when volumes were thin, and about 5 bp in 2025–26;
+taxes and exchange fees about 4 bp; brokerage under 2 bp. Today a round trip on the
+live pairs costs about 8–9 bp. The average trade earns a little more than its cost,
+which is within the noise.
 
 ## What we tried to fix it
 
-The trades lose to costs, not to the gaps. Two fixes were tested, each chosen on
+Costs, not the gaps, decide the result. Two fixes were tested, each chosen on
 2022–2024 and then checked once on 2025–2026 ([full write-up](docs/EXPERIMENTS.md)):
 
 - **A cost-aware entry gate**, with the expected gain from a simple rule or from a

@@ -156,3 +156,24 @@ def test_gate_decision_does_not_look_ahead(synthetic):
     key = ["pair", "entry_date", "lots_a", "lots_b", "exp_gross_bp", "exp_cost_bp"]
     before = lambda t: t[pd.to_datetime(t["entry_date"]) < pd.Timestamp(cut)][key].reset_index(drop=True)
     pd.testing.assert_frame_equal(before(base), before(other))
+
+
+# ------------------------------------------------------------------ the headline
+
+def test_verdict_calls_a_noisy_small_positive_break_even():
+    from mcxrv import snapshot
+    noisy = np.array([40.0, -38.0, 25.0, -20.0, 10.0, -8.0, 30.0, -27.0])     # mean +1.5
+    v = snapshot._verdict({"n_trades": 8, "mean_net_bp": float(noisy.mean()), "mean_gross_bp": 20.0},
+                          net_bp=noisy)
+    assert v["edge_survives_costs"] is False and v["headline"].startswith("About break-even")
+    steady = np.array([6.0, 7.0, 5.5, 6.5, 7.5, 5.0, 6.0, 7.0])
+    v = snapshot._verdict({"n_trades": 8, "mean_net_bp": float(steady.mean()), "mean_gross_bp": 20.0},
+                          net_bp=steady)
+    assert v["edge_survives_costs"] is True and v["headline"].startswith("Net edge positive")
+    v = snapshot._verdict({"n_trades": 8, "mean_net_bp": -3.0, "mean_gross_bp": 15.0}, net_bp=noisy)
+    assert v["headline"].startswith("No edge survives costs")
+
+
+def test_default_brokerage_is_the_discount_schedule():
+    assert costs.CostConfig().brokerage_mode == "cap"
+    assert costs.brokerage_inr(500_000, costs.CostConfig()) == 20.0
