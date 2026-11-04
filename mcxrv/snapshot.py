@@ -181,6 +181,36 @@ def suggested_trade(p: dict, legs: dict) -> dict | None:
             "margin": risk.get("marginal_margin")}
 
 
+def trade_cost(p: dict, liq: dict, cost_cfg: costs.CostConfig | None = None) -> dict | None:
+    """
+    What the trade the risk board would put on costs, next to what the gap offers.
+
+    The contracts and lots are the board's; the cost is a full round trip (open and
+    close both legs) at today's spread estimate plus statutory charges, in bp of one
+    leg, the same units as the gap. No model: two measured numbers side by side,
+    so whoever reads an alert can see whether the gap even pays for the trade.
+    """
+    risk = p.get("risk") or {}
+    ca, cb = risk.get("contract_a"), risk.get("contract_b")
+    la, lb = risk.get("lots_a"), risk.get("lots_b")
+    ra, rb = liq.get(ca) or {}, liq.get(cb) or {}
+    if not (ca and cb and la and lb) or ra.get("close") is None or rb.get("close") is None:
+        return None
+    def mult(sym):                      # rupees of position value per unit of quote, per lot
+        sp = specs.get(sym)
+        return sp.trading_unit_g / sp.quote_base_g
+    notional = 0.5 * (abs(ra["close"] * mult(p["sym_a"]) * la)
+                      + abs(rb["close"] * mult(p["sym_b"]) * lb))
+    rt = costs.round_trip_bp(notional, ra.get("half_spread_bp") or 0.0, rb.get("half_spread_bp") or 0.0,
+                             cost_cfg or costs.CostConfig(), la, max(ra.get("max_lots") or 1, 1),
+                             lb, max(rb.get("max_lots") or 1, 1))
+    gap = abs(float(p.get("dislocation_bp") or 0.0))
+    return {"gap_bp": gap, "round_trip_bp": rt["total_bp"],
+            "spread_cost_bp": rt["execution_bp"], "charges_bp": rt["statutory_bp"],
+            "gap_after_cost_bp": gap - rt["total_bp"], "covers_cost": bool(gap > rt["total_bp"]),
+            "notional_per_leg": notional}
+
+
 def archive_log(csv_dir: str, show: int = 30) -> dict:
     """
     Every downloaded bhavcopy file: the date it was requested for (from its name),
@@ -394,6 +424,8 @@ def research(result) -> dict:
     bd = result.bt_daily
     if bd is not None and not bd.empty and "equity" in bd.columns:
         out["equity"] = _records(bd, ["date", "equity"])
+    if (result.notes or {}).get("forward_test"):
+        out["forward_test"] = result.notes["forward_test"]
     return clean(out)
 
 
@@ -415,7 +447,8 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
         liq = {}
         if result.rows is not None and not result.rows.empty:
             lr = result.rows[result.rows["date"] == result.rows["date"].max()]
-            liq = lr.set_index("contract_id")[["tradable", "half_spread_bp"]].to_dict("index")
+            cols = [c for c in ("tradable", "half_spread_bp", "close", "max_lots") if c in lr.columns]
+            liq = lr.set_index("contract_id")[cols].to_dict("index")
         recent = set(sorted(q["date"].unique())[-LIQ_AVG_SESSIONS:])
         avg_vol = (q[q["date"].isin(recent)].groupby("contract_id")["volume"].mean()
                    .to_dict())
@@ -536,6 +569,7 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
             p["expiry_gap_days"] = None
         p["trade"] = (clean(suggested_trade(p, pair_legs))
                       if p["status"] in ("ALERT", "NO_TRADE") else None)
+        p["cost"] = clean(trade_cost(p, liq))
         p["telegram"] = (_notify.format_message({"kind": "new_alert", "pair_state": p}, meta_for_msg)
                          if p["status"] == "ALERT" else None)
 

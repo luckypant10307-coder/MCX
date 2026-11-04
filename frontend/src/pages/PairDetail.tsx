@@ -112,6 +112,12 @@ export default function PairDetail() {
               <div className="n" style={{ flex: `${Math.max(nAbs / tot, 0.05)} 0 auto` }}>normal {bp(d.centre_bp)}</div>
               <div className={"x" + (hot ? " hot" : "")} style={{ flex: `${Math.max(xAbs / tot, 0.05)} 0 auto` }}>extra {bp(d.dislocation_bp)} · z = {num(d.z)}</div>
             </div>
+            {d.cost && (
+              <p>Trading it costs about <b>{bp(d.cost.round_trip_bp)}</b> for a full round trip (bid/ask {bp(d.cost.spread_cost_bp)} +
+                charges {bp(d.cost.charges_bp)}), so the extra gap is{" "}
+                <b className={d.cost.covers_cost ? "c-good" : "c-bad"}>{d.cost.covers_cost ? "larger" : "smaller"}</b> than the
+                cost by {bp(Math.abs(d.cost.gap_after_cost_bp))}. Only the part of the gap that actually closes is earned.</p>
+            )}
             <p className="note">{d.maturity_matched ? "Same expiry window, so the normal gap is mostly each coin's premium."
               : "Different expiry windows, so the normal gap includes carry between the two expiries as well as each coin's premium."}</p>
           </Card>

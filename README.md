@@ -55,6 +55,23 @@ notification and assistant flows, as diagrams with explanations.
 The edge needs costs below about 1.1 bp per side to break even; realistic MCX costs
 are several times that.
 
+## What we tried to fix it
+
+The trades lose to costs, not to the gaps. Two fixes were tested, each chosen on
+2022–2024 and then checked once on 2025–2026 ([full write-up](docs/EXPERIMENTS.md)):
+
+- **A cost-aware entry gate**, with the expected gain from a simple rule or from a
+  model retrained monthly on past outcomes. **No improvement** on the unseen years
+  (−7.4 and −6.4 bp per trade against −7.6 today). The learned model ranked gaps worse
+  than the simple rule, so it is not used.
+- **Trading only the widest gaps (|z| ≥ 3).** Positive on 2025–2026 (+4.2 bp, 64
+  trades) but losing on 2022–2024, where the rule had to be chosen. **Not proven.**
+
+What changed as a result: every pair now shows the round-trip cost of its trade next
+to its gap, and a **forward test** of |z| ≥ 3, fixed on 4 November 2026, runs every
+night on sessions that did not exist when it was chosen. Its results are on the
+Research page.
+
 ## Margin: what is published and what is assumed
 
 Margin decides how much capital a spread ties up. Two parts:
