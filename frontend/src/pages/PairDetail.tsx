@@ -118,6 +118,11 @@ export default function PairDetail() {
                 <b className={d.cost.covers_cost ? "c-good" : "c-bad"}>{d.cost.covers_cost ? "larger" : "smaller"}</b> than the
                 cost by {bp(Math.abs(d.cost.gap_after_cost_bp))}. Only the part of the gap that actually closes is earned.</p>
             )}
+            {d.edge && d.edge.exp_gross_bp !== null && (
+              <p>Cost hurdle: this gap should close by about <b>{bp(d.edge.exp_gross_bp)}</b> before the trade has to end, against
+                <b> {bp(d.edge.cost_bp)}</b> to trade in and out, so about <b className={d.edge.ok ? "c-good" : "c-bad"}>{bp(d.edge.exp_net_bp)}</b> net.
+                {d.edge.ok ? " That clears the hurdle (1.5× cost and 5 bp net)." : " That does not clear the hurdle (1.5× cost and 5 bp net)."}</p>
+            )}
             <p className="note">{d.maturity_matched ? "Same expiry window, so the normal gap is mostly each coin's premium."
               : "Different expiry windows, so the normal gap includes carry between the two expiries as well as each coin's premium."}</p>
           </Card>

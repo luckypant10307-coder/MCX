@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from ..stage3_gates_decision import edge_gate
 from ..stage3_gates_decision import liquidity_cost as costs_mod
 from ..stage3_gates_decision import margin_capital as margin_mod
 from ..stage1_intake import specs
@@ -98,6 +99,20 @@ class BacktestConfig:
     # with no expected gain (the model not yet trained) is not blocked.
     min_edge_bp: float | None = None
     edge_col: str = "exp_gain_bp"
+    # Cost hurdle (edge_gate.edge_check), the rule the live board shares. Its
+    # expected values are recorded on every trade either way; `cost_gate` decides
+    # whether a failing signal is skipped. The three settings were fixed before any
+    # result was seen and are not tuned (docs/EXPERIMENTS.md).
+    cost_gate: bool = False
+    hurdle_mult: float = 1.5
+    min_net_bp: float = 5.0
+    haircut: float = 0.7
+
+    def edge_gate_config(self) -> edge_gate.EdgeGateConfig:
+        return edge_gate.EdgeGateConfig(
+            exit_z=self.exit_z, max_holding_sessions=self.max_holding_sessions,
+            min_sessions_to_expiry_exit=self.min_sessions_to_expiry_exit,
+            hurdle_mult=self.hurdle_mult, min_net_bp=self.min_net_bp, haircut=self.haircut)
 
 
 @dataclass
@@ -121,6 +136,13 @@ class Position:
     notional_a: float
     notional_b: float
     entry_margin: float = 0.0
+    # What the cost hurdle expected at entry, and the entry cost by kind.
+    exp_gross_bp: float = float("nan")
+    exp_cost_bp: float = float("nan")
+    exp_net_bp: float = float("nan")
+    entry_brokerage_inr: float = 0.0
+    entry_statutory_inr: float = 0.0
+    entry_execution_inr: float = 0.0
     # Set when the account could not fund the book. The broker closes the position
     # on the next session at whatever price exists -- the signal gets no say.
     margin_called: bool = False
@@ -379,6 +401,10 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
             c_b = costs_mod.leg_cost_inr(notional_b, side_b, hs_b, p.lots_b,
                                          max(rb.max_lots, 1), cost_cfg)
             exit_cost = c_a["total_inr"] + c_b["total_inr"]
+            brok = p.entry_brokerage_inr + c_a["brokerage_inr"] + c_b["brokerage_inr"]
+            stat = p.entry_statutory_inr + c_a["statutory_inr"] + c_b["statutory_inr"]
+            execn = p.entry_execution_inr + c_a["execution_inr"] + c_b["execution_inr"]
+            per_bp = 10000.0 / max(p.notional_a, 1e-9)
 
             net = gross - p.entry_cost_inr - exit_cost
             day_cost += exit_cost
@@ -407,6 +433,12 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
                 "gross_bp": gross / max(p.notional_a, 1e-9) * 10000.0,
                 "net_bp": net / max(p.notional_a, 1e-9) * 10000.0,
                 "entry_margin": p.entry_margin,
+                # cost by kind over the round trip, bp of leg A: brokerage alone,
+                # taxes and fees (statutory less brokerage), and bid/ask + impact
+                "brokerage_bp": brok * per_bp, "statutory_bp": (stat - brok) * per_bp,
+                "execution_bp": execn * per_bp,
+                "exp_gross_bp": p.exp_gross_bp, "exp_cost_bp": p.exp_cost_bp,
+                "exp_net_bp": p.exp_net_bp,
                 "return_on_margin": (net / p.entry_margin
                                      if p.entry_margin > 0 else np.nan),
             })
@@ -509,6 +541,24 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
                                              lots_b, max(rb.max_lots, 1), cost_cfg)
                 entry_cost = c_a["total_inr"] + c_b["total_inr"]
 
+                # Cost hurdle. Exit is priced the way the close below prices it:
+                # same spread estimates, widened on a leg that is already untradable.
+                xa = costs_mod.leg_cost_inr(
+                    notional_a, "sell" if side_a == "buy" else "buy",
+                    ra.half_spread_bp * (1.0 if ra.tradable else cfg.illiquid_exit_spread_mult),
+                    lots_a, max(ra.max_lots, 1), cost_cfg)
+                xb = costs_mod.leg_cost_inr(
+                    notional_b, "sell" if side_b == "buy" else "buy",
+                    rb.half_spread_bp * (1.0 if rb.tradable else cfg.illiquid_exit_spread_mult),
+                    lots_b, max(rb.max_lots, 1), cost_cfg)
+                edge = edge_gate.edge_check(
+                    rec.z, getattr(rec, "scale", np.nan), getattr(rec, "halflife", np.nan),
+                    ra.sessions_to_expiry, rb.sessions_to_expiry, entry_cost,
+                    xa["total_inr"] + xb["total_inr"], notional_a, cfg.edge_gate_config())
+                if cfg.cost_gate and not edge["ok"]:
+                    bump("skip_below_cost_hurdle")
+                    continue
+
                 next_trade_id += 1
                 open_pos.append(Position(
                     pair=rec.pair, sym_a=rec.sym_a, sym_b=rec.sym_b,
@@ -519,6 +569,11 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
                     fine_residual_g=resid_g, residual_frac=resid_frac,
                     entry_cost_inr=entry_cost,
                     notional_a=notional_a, notional_b=notional_b,
+                    exp_gross_bp=edge["exp_gross_bp"], exp_cost_bp=edge["cost_bp"],
+                    exp_net_bp=edge["exp_net_bp"],
+                    entry_brokerage_inr=c_a["brokerage_inr"] + c_b["brokerage_inr"],
+                    entry_statutory_inr=c_a["statutory_inr"] + c_b["statutory_inr"],
+                    entry_execution_inr=c_a["execution_inr"] + c_b["execution_inr"],
                     entry_margin=margin_mod.initial_margin([
                         margin_mod.MarginPosition(
                             rec.sym_a, cid_a, int(rec.direction) * lots_a,

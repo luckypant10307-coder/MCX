@@ -30,8 +30,17 @@ class CostConfig:
     plausible retail-through-broker values for MCX non-agri futures; they are
     parameters to be set by whoever runs this, not claims of fact.
     """
+    # Brokerage, per order. "floor": the larger of brokerage_rate x turnover and
+    # brokerage_min_inr (a full-service schedule). "cap": the SMALLER of
+    # brokerage_cap_rate x turnover and brokerage_cap_inr, which is how discount
+    # brokers charge MCX futures (Zerodha: 0.03% or Rs 20, whichever is lower, as its
+    # Kite Connect contract-note example shows). On a Rs 5 lakh leg the two differ
+    # five-fold (Rs 100 vs Rs 20), so it is a choice to state, not to pick for results.
+    brokerage_mode: str = "floor"
     brokerage_rate: float = 0.00020        # 2 bp of turnover
     brokerage_min_inr: float = 20.0        # per order
+    brokerage_cap_rate: float = 0.0003     # 0.03%
+    brokerage_cap_inr: float = 20.0        # per order
     exchange_txn_rate: float = 0.000026    # ~0.0026%
     sebi_turnover_rate: float = 0.000001   # Rs 10 per crore
     ctt_rate_sell: float = 0.0001          # 0.01%, SELL side only
@@ -44,6 +53,16 @@ class CostConfig:
     slippage_bp: float = 0.0               # extra pad, for stress testing
 
 
+def brokerage_inr(turnover_inr: float, cfg: CostConfig) -> float:
+    """Brokerage for one order under the configured schedule."""
+    t = max(float(turnover_inr), 0.0)
+    if cfg.brokerage_mode == "floor":
+        return max(t * cfg.brokerage_rate, cfg.brokerage_min_inr)
+    if cfg.brokerage_mode == "cap":
+        return min(t * cfg.brokerage_cap_rate, cfg.brokerage_cap_inr)
+    raise ValueError("brokerage_mode must be 'floor' or 'cap', not {!r}".format(cfg.brokerage_mode))
+
+
 def statutory_cost_inr(turnover_inr: float, side: str, cfg: CostConfig) -> float:
     """
     Statutory and brokerage charges for ONE leg, ONE side, in rupees.
@@ -52,7 +71,7 @@ def statutory_cost_inr(turnover_inr: float, side: str, cfg: CostConfig) -> float
     round trip pays each exactly once per leg regardless of direction.
     """
     turnover_inr = max(float(turnover_inr), 0.0)
-    brokerage = max(turnover_inr * cfg.brokerage_rate, cfg.brokerage_min_inr)
+    brokerage = brokerage_inr(turnover_inr, cfg)
     exch = turnover_inr * cfg.exchange_txn_rate
     sebi = turnover_inr * cfg.sebi_turnover_rate
     gst = (brokerage + exch) * cfg.gst_rate
@@ -84,6 +103,7 @@ def leg_cost_inr(turnover_inr: float, side: str, half_spread_bp: float,
     exec_bp = execution_cost_bp(half_spread_bp, lots, max_lots, cfg)
     exec_inr = turnover_inr * exec_bp / 10000.0
     return {"statutory_inr": stat, "execution_inr": exec_inr,
+            "brokerage_inr": brokerage_inr(turnover_inr, cfg),
             "execution_bp": exec_bp, "total_inr": stat + exec_inr}
 
 

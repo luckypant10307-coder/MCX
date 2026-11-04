@@ -57,6 +57,10 @@ class PipelineConfig:
     # above the volatility estimate: a broker sheet states the rate actually charged,
     # but not the spread credits a risk file carries.
     margins_file: str | None = None
+    # Cost hurdle (edge_gate): when on, the backtest skips and the live board marks
+    # WATCH any signal whose expected profit does not beat its cost by the hurdle.
+    # Off until it has been shown to help on unseen years (docs/EXPERIMENTS.md).
+    cost_gate: bool = False
 
 
 @dataclass
@@ -168,7 +172,8 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
     bcfg = backtest.BacktestConfig(exit_z=scfg.z_exit, span_params=sp,
                                    margin_schedule=msched,
                                    margin_limit=cfg.margin_limit,
-                                   account_capital=cfg.account_capital)
+                                   account_capital=cfg.account_capital,
+                                   cost_gate=cfg.cost_gate)
 
     trades, bt_daily, perf = empty, empty, {}
     board = empty
@@ -199,7 +204,9 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
     return PipelineResult(cfg, report, quotes, rows, daily, prem, pairs, trades,
                           bt_daily, perf, board, span_source=span_source,
                           notes={"z_entry": cfg.z_entry, "z_exit": scfg.z_exit,
-                                 "account": account, "forward_test": forward})
+                                 "account": account, "forward_test": forward,
+                                 "edge_gate": bcfg.edge_gate_config(),
+                                 "cost_gate": cfg.cost_gate, "cost_cfg": ccfg})
 
 
 def forward_test(rows, sym_resid, current_trades, bcfg, ccfg, scfg,
