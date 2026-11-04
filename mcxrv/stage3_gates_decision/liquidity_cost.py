@@ -36,7 +36,9 @@ class CostConfig:
     # brokers charge MCX futures (Zerodha: 0.03% or Rs 20, whichever is lower, as its
     # Kite Connect contract-note example shows). On a Rs 5 lakh leg the two differ
     # five-fold (Rs 100 vs Rs 20), so it is a choice to state, not to pick for results.
-    brokerage_mode: str = "floor"
+    # Default "cap": the owner trades through a discount broker (decided 4 Nov 2026,
+    # after both schedules had been reported side by side in docs/EXPERIMENTS.md).
+    brokerage_mode: str = "cap"
     brokerage_rate: float = 0.00020        # 2 bp of turnover
     brokerage_min_inr: float = 20.0        # per order
     brokerage_cap_rate: float = 0.0003     # 0.03%

@@ -109,7 +109,7 @@ def test_one_leg_costing_understates_by_about_four_times():
 
 
 def test_ctt_on_sell_and_stamp_on_buy_only():
-    cfg = costs.CostConfig(brokerage_rate=0.0, brokerage_min_inr=0.0,
+    cfg = costs.CostConfig(brokerage_mode="floor", brokerage_rate=0.0, brokerage_min_inr=0.0,
                            exchange_txn_rate=0.0, sebi_turnover_rate=0.0,
                            gst_rate=0.0)
     sell = costs.statutory_cost_inr(1_000_000.0, "sell", cfg)

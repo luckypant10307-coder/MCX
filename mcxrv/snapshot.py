@@ -130,7 +130,14 @@ def decide(pair_row, board_row, z_entry: float, edge: dict | None = None,
             "binding_gate": None}
 
 
-def _verdict(perf: dict, warming_up: str | None = None) -> dict:
+def _verdict(perf: dict, warming_up: str | None = None, net_bp=None) -> dict:
+    """
+    The headline. A positive average is called an edge only when its rough 95% range
+    (mean +/- 2 standard errors over trades) stays above zero; a small positive
+    average with a range across zero is break-even, and saying otherwise would sell
+    noise as a result. Trades overlap, so the true range is wider still: this test
+    can only err towards caution.
+    """
     n = int(perf.get("n_trades") or 0)
     if n == 0 and warming_up:
         return {"headline": "Not enough history to backtest yet ({}).".format(warming_up),
@@ -140,11 +147,21 @@ def _verdict(perf: dict, warming_up: str | None = None) -> dict:
                 "edge_survives_costs": False}
     net = perf.get("mean_net_bp")
     gross = perf.get("mean_gross_bp")
-    ok = net is not None and np.isfinite(net) and net > 0
-    head = ("Net edge positive after costs ({:+.1f} bp per trade)".format(net) if ok else
-            "No edge survives costs: {:+.1f} bp gross becomes {:+.1f} bp net per trade"
-            .format(gross or 0.0, net or 0.0))
-    return {"headline": head, "edge_survives_costs": bool(ok)}
+    if net is None or not np.isfinite(net) or net <= 0:
+        return {"headline": "No edge survives costs: {:+.1f} bp gross becomes {:+.1f} bp net per trade"
+                .format(gross or 0.0, net or 0.0), "edge_survives_costs": False}
+    x = np.asarray([v for v in (net_bp if net_bp is not None else []) if np.isfinite(v)], dtype=float)
+    if len(x) >= 2:
+        se = float(x.std(ddof=1) / np.sqrt(len(x)))
+        lo, hi = net - 2 * se, net + 2 * se
+        if lo <= 0:
+            return {"headline": "About break-even after costs: {:+.1f} bp net per trade, but the likely range "
+                                "({:+.1f} to {:+.1f} bp) includes zero, so not a reliable edge".format(net, lo, hi),
+                    "edge_survives_costs": False, "range_bp": [lo, hi]}
+        return {"headline": "Net edge positive after costs: {:+.1f} bp per trade (likely range {:+.1f} to {:+.1f} bp)"
+                .format(net, lo, hi), "edge_survives_costs": True, "range_bp": [lo, hi]}
+    return {"headline": "Net {:+.1f} bp per trade, from too few trades to call".format(net),
+            "edge_survives_costs": False}
 
 
 # ---------------------------------------------------------------- monitoring detail
@@ -728,7 +745,10 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
                          result.performance,
                          warming_up=latest_pairs[0]["reason"].split(": ", 1)[1]
                          if latest_pairs and counts["WARMUP"] == len(latest_pairs)
-                         else None)},
+                         else None,
+                         net_bp=(result.trades["net_bp"].to_numpy()
+                                 if result.trades is not None and len(result.trades)
+                                 and "net_bp" in result.trades.columns else None))},
         "research": research(result),
         "archive": archive,
         "parameters": engine_parameters(result),

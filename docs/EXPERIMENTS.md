@@ -114,6 +114,13 @@ Half-spread sensitivity, reported and not chosen from (floor brokerage, net bp):
 
 ## 4. What was kept
 
+- **Discount-broker brokerage as the default** (4 Nov 2026, after both schedules were
+  reported above): the owner would trade through a discount broker, so the dashboard
+  and backtest now charge ₹20 or 0.03% an order. Over all years: +17.6 bp gross,
+  **+2.9 bp net** per trade, likely range −14.6 to +20.4 bp. The headline now says
+  "about break-even" whenever that range includes zero, instead of calling any
+  positive average an edge.
+
 - **Cost on every alert.** Each pair now shows the round-trip cost of the trade the
   risk board would put on, next to the gap: two measured numbers, no model. On
   27 October 2026 a round trip cost about 16–17 bp, of which brokerage and exchange

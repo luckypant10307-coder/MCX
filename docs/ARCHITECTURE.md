@@ -10,9 +10,10 @@ system loads the exchange's settlement prices, puts all four on the same footing
 (rupees per 10 g of fine gold, normal expiry gap removed), and scores how unusual the
 gap is for each of the six pairs. A pair that is unusual and passes every risk gate is
 an ALERT. A walk-forward backtest over 1,236 sessions (Jan 2022 – Oct 2026) answers
-whether trading those gaps would have paid: **+17.5 bp per trade before costs, −5.3 bp
-after**. The gaps are real but smaller than the cost of trading them, and the system
-says so. It reads only public data and never places an order.
+whether trading those gaps would have paid: **+17.6 bp per trade before costs and
++2.9 bp after** with discount-broker charges (−5.3 bp with full-service brokerage),
+with a likely range of −14.6 to +20.4 bp. The gaps are real, but after costs trading
+them only about breaks even, and the system says so. It reads only public data and never places an order.
 
 **Contents**
 
