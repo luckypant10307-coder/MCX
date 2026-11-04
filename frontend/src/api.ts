@@ -54,6 +54,8 @@ export interface Pair {
   direction: number | null; status: Status; reason: string; risk?: Risk | null; legs?: Leg[];
   expiry_gap_days?: number | null; trade?: { legs: TradeLeg[]; margin?: number; residual_frac?: number } | null;
   telegram?: string | null;
+  cost?: { gap_bp: number; round_trip_bp: number; spread_cost_bp: number; charges_bp: number;
+           gap_after_cost_bp: number; covers_cost: boolean; notional_per_leg: number } | null;
 }
 export interface HistoryRow { date: string; spread_bp: number | null; centre: number | null; scale: number | null; z: number | null; signal_ok: boolean }
 export interface PairDetail extends Pair { history: HistoryRow[]; z_entry: number }
@@ -94,7 +96,14 @@ export interface Research {
   premiums?: { date: string; symbol: string; premium_bp: number }[];
   by_year?: YearRow[]; by_pair?: (YearRow & { pair: string })[]; exit_reasons?: Record<string, number>;
   equity?: { date: string; equity: number }[];
+  forward_test?: ForwardTest;
   verdict: { headline: string; edge_survives_costs: boolean | null }; performance: Performance; meta: Meta;
+}
+export interface ForwardSide { n: number; gross_bp: number | null; net_bp: number | null; hit_rate_net: number | null; net_pnl: number }
+export interface ForwardTest {
+  start: string; registered: string; candidate_rule: string; current_rule: string;
+  candidate: ForwardSide; current: ForwardSide;
+  candidate_trades: { pair: string; entry_date: string; exit_date: string; entry_z: number; gross_bp: number; net_bp: number; net_pnl: number; exit_reason: string }[];
 }
 export interface Trade { pair: string; entry_date: string; exit_date: string; lots_a: number; lots_b: number; entry_z: number; gross_bp: number; net_bp: number; exit_reason: string }
 export interface Backtest { performance: Performance; trades: Trade[]; verdict: { headline: string } }

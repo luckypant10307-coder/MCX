@@ -25,6 +25,17 @@ from mcxrv.stage2_normalize_signal import z_score as sig_mod
 from mcxrv.stage1_intake import specs
 
 
+# Pre-registered forward test, fixed on 4 Nov 2026 before any of its data existed.
+# On 2025-26 only the widest gaps (|z| >= 3) paid after costs, but that was found by
+# looking at those years, so it proves nothing. The honest test is sessions nobody
+# had seen when the rule was chosen: every night the candidate rule and the current
+# one are run side by side, and only trades ENTERED on or after `start` are counted.
+# Do not change these values once results start arriving; that would re-open the
+# door this test exists to close.
+FORWARD_TEST = {"start": date(2026, 11, 5), "registered": date(2026, 11, 4),
+                "candidate_z_entry": 3.0}
+
+
 @dataclass
 class PipelineConfig:
     source: str = "synthetic"          # synthetic | csv | live | db
@@ -182,10 +193,55 @@ def run(cfg: PipelineConfig | None = None, quotes: pd.DataFrame | None = None,
     else:
         account = {}
 
+    forward = (forward_test(rows, sym_resid, trades, bcfg, ccfg, scfg,
+                            cfg.maturity_matched_only)
+               if not pairs.empty else {})
     return PipelineResult(cfg, report, quotes, rows, daily, prem, pairs, trades,
                           bt_daily, perf, board, span_source=span_source,
                           notes={"z_entry": cfg.z_entry, "z_exit": scfg.z_exit,
-                                 "account": account})
+                                 "account": account, "forward_test": forward})
+
+
+def forward_test(rows, sym_resid, current_trades, bcfg, ccfg, scfg,
+                 maturity_matched_only: bool = False) -> dict:
+    """
+    The candidate rule (FORWARD_TEST) next to the current one, counting only trades
+    entered on or after the start date. Same data, engine, costs and margin; only
+    the entry threshold differs. Alerts are not affected.
+    """
+    from dataclasses import replace as _replace
+    start = pd.Timestamp(FORWARD_TEST["start"])
+    cand_cfg = _replace(scfg, z_entry=FORWARD_TEST["candidate_z_entry"])
+    cand_pairs = sig_mod.pair_spreads(sym_resid, cand_cfg,
+                                      maturity_matched_only=maturity_matched_only)
+    cand_trades = pd.DataFrame()
+    if not cand_pairs.empty:
+        cand_trades, _d, _g, _p = backtest.run(
+            rows, sig_mod.lag_for_execution(cand_pairs, sessions=1),
+            _replace(bcfg, emit_position_daily=False), ccfg)
+
+    def since(t):
+        if t is None or t.empty:
+            return t if t is not None else pd.DataFrame()
+        return t[pd.to_datetime(t["entry_date"]) >= start]
+
+    def summary(t):
+        if t is None or t.empty:
+            return {"n": 0, "gross_bp": None, "net_bp": None, "hit_rate_net": None, "net_pnl": 0.0}
+        return {"n": int(len(t)), "gross_bp": float(t["gross_bp"].mean()),
+                "net_bp": float(t["net_bp"].mean()),
+                "hit_rate_net": float((t["net_bp"] > 0).mean()),
+                "net_pnl": float(t["net_pnl"].sum())}
+
+    cand, cur = since(cand_trades), since(current_trades)
+    cols = [c for c in ("pair", "entry_date", "exit_date", "entry_z", "gross_bp", "net_bp",
+                        "net_pnl", "exit_reason") if c in getattr(cand, "columns", [])]
+    return {"start": FORWARD_TEST["start"], "registered": FORWARD_TEST["registered"],
+            "candidate_rule": "|z| >= {:g}".format(FORWARD_TEST["candidate_z_entry"]),
+            "current_rule": "|z| >= {:g}".format(scfg.z_entry),
+            "candidate": summary(cand), "current": summary(cur),
+            "candidate_trades": (cand[cols].sort_values("entry_date").to_dict("records")
+                                 if len(cand) else [])}
 
 
 def account_state(bt_daily: pd.DataFrame, capital: float, limit_pct: float) -> dict:

@@ -117,6 +117,30 @@ function Years({ r, p }: { r: R; p: Palette }) {
     </Card>);
 }
 
+/** Pre-registered forward test: a stricter entry rule, scored only on sessions nobody had seen when it was chosen. */
+function Forward({ f }: { f: NonNullable<R["forward_test"]> }) {
+  const side = (label: string, s: typeof f.current) => (
+    <Kpi label={label} value={s.n ? bp(s.net_bp) : "–"}
+      sub={s.n ? `${s.n} trade${s.n === 1 ? "" : "s"} · ${pct(s.hit_rate_net)} won · net ${inr(s.net_pnl)}` : "no closed trades yet"}
+      tone={s.n ? ((s.net_bp ?? 0) > 0 ? "good" : "bad") : undefined} />);
+  return (
+    <Card title="Forward test: only the widest gaps" note={`fixed ${fdate(f.registered)} · counting trades from ${fdate(f.start)}`}>
+      <p className="note">On 2025–26 only gaps of |z| 3 and above paid after costs, but that was found by looking at those years, so it proves
+        nothing. This test runs the stricter rule next to the current one on sessions that had not happened when it was chosen.
+        Alerts still use the current rule. Read it after a few months: a handful of trades is noise.</p>
+      <div className="kpis">{side(`Candidate ${f.candidate_rule} · net per trade`, f.candidate)}{side(`Current ${f.current_rule} · net per trade`, f.current)}</div>
+      {f.candidate_trades.length ? (
+        <div className="tw"><table>
+          <thead><tr><th>Pair</th><th>Entered</th><th>Exited</th><th className="num">z</th><th className="num">Net</th><th>Why it ended</th></tr></thead>
+          <tbody>{f.candidate_trades.map((t) => (
+            <tr key={t.pair + t.entry_date}><td><b>{t.pair}</b></td><td className="nw">{fdate(t.entry_date)}</td><td className="nw">{fdate(t.exit_date)}</td>
+              <td className="num">{num(t.entry_z)}</td><td className={"num " + (t.net_bp > 0 ? "c-good" : "c-bad")}>{bp(t.net_bp)}</td><td className="sub">{t.exit_reason}</td></tr>))}
+          </tbody>
+        </table></div>
+      ) : null}
+    </Card>);
+}
+
 function Exits({ r, p }: { r: R; p: Palette }) {
   const ex = r.exit_reasons ?? {}, tot = Object.values(ex).reduce((a, b) => a + b, 0) || 1;
   const parts: [string, string, string][] = ([["stop", "stopped out", p.s2], ["converged", "converged", p.s1], ["calendar", "expiry runway", p.s3], ["max_holding", "held too long", p.o2]] as [string, string, string][]).filter(([k]) => ex[k]);
@@ -154,6 +178,7 @@ export default function Research() {
         {r.event_study && <EventStudy r={r} p={p} />}
         <div className="grid2 even"><Costs r={r} p={p} /><Premiums r={r} p={p} /></div>
         <div className="grid2 even"><Years r={r} p={p} /><Exits r={r} p={p} /></div>
+        {r.forward_test && <Forward f={r.forward_test} />}
         <Card title="How the engine is kept honest" note="run on every push">
           <div className="checks">{[["Null world", "On synthetic data with no relative value, the strategy must show no edge."],
             ["Known truth", "A synthetic world with an injected premium and dislocation, which the model must recover."],

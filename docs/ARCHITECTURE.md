@@ -177,6 +177,11 @@ mispricing; for each pair it is turned into a z-score against that pair's own hi
 pair must also have enough sessions before expiry, enough liquidity, room after costs,
 affordable margin, a risk board that accepts the added exposure, and an account not
 halted by the drawdown kill switch. Every decision carries its reason.
+Each pair also carries the round-trip cost of the trade the board would put on (spread
+estimate plus brokerage and exchange charges), shown next to its gap. A cost-aware
+entry gate and a learned gain model were tested and did not improve results on unseen
+years; see [EXPERIMENTS.md](EXPERIMENTS.md). A stricter rule (|z| ≥ 3) runs alongside as
+a forward test fixed on 4 Nov 2026, counting only trades entered from 5 Nov 2026.
 
 **Stage 4 — Simulate.** The backtest walks forward one session at a time, using only
 information available that day. It fills every trade at the **next** session's price

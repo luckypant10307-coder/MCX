@@ -92,6 +92,12 @@ class BacktestConfig:
     illiquid_exit_spread_mult: float = 3.0
     allow_pairs_with_goldm: bool = True
     one_position_per_pair: bool = True
+    # Cost-aware entry: enter only when the signal's expected gain (column
+    # `edge_col`, from edge.predict_walk_forward or edge.rule_gain) exceeds this
+    # trade's round-trip cost by at least `min_edge_bp`. None leaves it off. A row
+    # with no expected gain (the model not yet trained) is not blocked.
+    min_edge_bp: float | None = None
+    edge_col: str = "exp_gain_bp"
 
 
 @dataclass
@@ -454,6 +460,22 @@ def run(rows: pd.DataFrame, pair_sig: pd.DataFrame, cfg: BacktestConfig | None =
                     bump("skip_cannot_size")
                     continue
                 lots_a, lots_b, resid_g, resid_frac = sized
+
+                # Worth its cost? The gain is what this kind of gap has closed by
+                # before; the cost is this trade's own: these contracts, these
+                # lots, today's spread estimates, four crossings.
+                if cfg.min_edge_bp is not None:
+                    gain = float(getattr(rec, cfg.edge_col, np.nan))
+                    if np.isfinite(gain):
+                        leg_notional = 0.5 * (
+                            abs(ra.close * _multiplier(rec.sym_a) * lots_a)
+                            + abs(rb.close * _multiplier(rec.sym_b) * lots_b))
+                        rt = costs_mod.round_trip_bp(
+                            leg_notional, ra.half_spread_bp, rb.half_spread_bp, cost_cfg,
+                            lots_a, max(ra.max_lots, 1), lots_b, max(rb.max_lots, 1))
+                        if gain - rt["total_bp"] < cfg.min_edge_bp:
+                            bump("skip_edge_below_cost")
+                            continue
 
                 # Margin is the real constraint on how many positions can be held.
                 # Check the WHOLE prospective book, not this trade alone, because
