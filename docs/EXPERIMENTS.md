@@ -112,7 +112,47 @@ Half-spread sensitivity, reported and not chosen from (floor brokerage, net bp):
 | 1.5 | −4.8 | −8.8 | −8.0 | −9.4 |
 | 2.0 | −7.6 | −10.1 | −9.5 | −10.3 |
 
-## 4. What was kept
+## 4. Measuring the bid/ask spread from daily prices
+
+*Run on 5 November 2026.* The cost model assumes each contract's half-spread from
+tick size and volume, because the bhavcopy has no bid or ask. Two published methods
+read a spread out of daily high, low and close instead:
+[Corwin–Schultz](../mcxrv/stage2_normalize_signal/spread_estimate.py) (two-day
+high–low ranges) and Abdi–Ranaldo (close against the high–low midpoint).
+
+**First, on simulated prices with a known spread.** Flooring each day's
+Corwin–Schultz estimate at zero before averaging, one reading of the paper, inflated
+a true 3 bp to 12.7 bp; averaging first and flooring after is accurate (2.6 bp), so
+the code does that. Then at gold's real volatility (about 100 bp a day) over a year:
+
+| True half-spread | Corwin–Schultz | Abdi–Ranaldo |
+|---|---|---|
+| 1.0 bp | 3.0 (90% of runs 0–6.3) | 6.2 (0–16.8) |
+| 2.5 bp | 3.6 (0–6.9) | 6.3 (0–16.8) |
+| 5.0 bp | 5.5 (1.8–8.6) | 7.0 (0–17.1) |
+
+Neither can tell 1 bp from 2.5 bp when daily moves are forty times larger.
+
+**On real MCX data** (`scripts/experiments/spread_check.py`), tradable contract-days,
+half-spread in bp:
+
+| Contracts | Cost model | Corwin–Schultz | Abdi–Ranaldo |
+|---|---|---|---|
+| Busiest contract of each symbol, 2022–26 | 0.3–1.8 | 0 in 14 of 17 symbol-years | 1.3–11.4 |
+| Other tradable contracts, 2022–26 | 0.7–4.0 | 0 in 13 of 17 | 2.4–11.4 |
+
+Corwin–Schultz averages out negative almost everywhere: the spread is invisible under
+volatility. Abdi–Ranaldo follows volatility rather than liquidity: it gives the
+busiest GOLDPETAL contract of 2026 (212,880 lots a day) 6.9 bp, and rises for every
+symbol at once in 2025–26, when gold became more volatile.
+
+**Result: neither method can measure spreads this small, so the cost model is
+unchanged.** Its values track volume the way real spreads do (busy contracts fell
+from about 1 bp to 0.3 bp as volume grew five-fold) and stay close to MCX tick sizes.
+Measuring the spread needs real quotes: recording bid, ask and depth through a
+broker API (Angel One SmartAPI or Fyers, free with an account) a few times a session.
+
+## 5. What was kept
 
 - **Discount-broker brokerage as the default** (4 Nov 2026, after both schedules were
   reported above): the owner would trade through a discount broker, so the dashboard
@@ -138,6 +178,7 @@ python scripts/fetch_mtf.py
 python scripts/experiments/edge_experiment.py     # section 1
 python scripts/experiments/zentry_experiment.py   # section 2
 python scripts/experiments/cost_hurdle_eval.py    # section 3
+python scripts/experiments/spread_check.py         # section 4
 ```
 
 Numbers will move slightly as new sessions are added.
