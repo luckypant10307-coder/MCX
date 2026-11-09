@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useDataQuality, useOverview } from "../api";
-import { compact, fdate, fexp, fmon, int, ms } from "../format";
+import { compact, fdate, fexp, fmon, int, ms, sci } from "../format";
 import { usePalette } from "../theme";
 import { Box, SoftTooltip, axis } from "../components/charts";
 import { Card, Chip, Kpi, Loaded } from "../components/ui";

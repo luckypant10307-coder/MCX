@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, Scatter, XAxis, YAxis } from "recharts";
 import { useOverview, usePair, useRisk, type Account, type Leg, type PairDetail as PD, type Risk } from "../api";
-import { bp, compact, fdate, fexp, fin, fmon, inr, ms, num, pct, vs } from "../format";
+import { bp, compact, fdate, fexp, fin, fmon, inr, ms, num, pct, sci, vs } from "../format";
 import { usePalette } from "../theme";
 import { Box, SoftTooltip, axis } from "../components/charts";
 import { Card, Chip, Legend, Loaded } from "../components/ui";
