@@ -36,10 +36,12 @@ export interface Contract {
   symbol: string; contract_id: string; expiry_date: string; close: number; quote_base_g: number;
   purity: number; norm_close_10g: number; inr_per_g_fine: number; volume: number;
   sessions_to_expiry: number; avg_volume_20: number | null; liquidity: "GREEN" | "YELLOW" | "RED" | null;
+  avg_oi_20?: number | null; amihud_20?: number | null; half_spread_bp?: number | null;
 }
 export interface Leg {
   symbol: string; contract_id?: string; expiry_date?: string; sessions_to_expiry?: number;
   liquidity?: string | null; avg_volume_20?: number | null; tradable?: boolean | null; front_month?: boolean;
+  avg_oi_20?: number | null; amihud_20?: number | null; half_spread_bp?: number | null;
 }
 export interface Risk {
   action?: string; reason?: string; lots_a?: number; lots_b?: number; marginal_margin?: number;
@@ -93,7 +95,8 @@ export interface Research {
   window: { start: string; end: string; sessions: number; years: number };
   coverage: Coverage[];
   event_study?: { round_trip_bp: number; half_spread_bp: number; rows: EsRow[] };
-  costs: { sweep: { half_spread_bp_per_leg: number; statutory_bp: number; execution_bp: number; round_trip_bp: number }[]; gross_bp: number; net_bp: number; breakeven_half_spread_bp: number };
+  costs: { sweep: { half_spread_bp_per_leg: number; statutory_bp: number; execution_bp: number; round_trip_bp: number }[]; gross_bp: number; net_bp: number; breakeven_half_spread_bp: number;
+    breakeven_brokerage_mode?: string; assumed_half_spread_bp?: Record<string, { busiest_bp: number; median_bp: number }> };
   premiums?: { date: string; symbol: string; premium_bp: number }[];
   by_year?: YearRow[]; by_pair?: (YearRow & { pair: string })[]; exit_reasons?: Record<string, number>;
   equity?: { date: string; equity: number }[];

@@ -66,7 +66,13 @@ function Costs({ r, p }: { r: R; p: Palette }) {
           <SoftTooltip head={(x) => `half-spread ${x} bp per leg`} rows={(pl) => [{ label: "round trip", value: `${num(pl?.[0]?.value, 1)} bp`, color: p.s1 }]} />
         </LineChart>
       </Box>
-      <p>They cross at <b>{num(c.breakeven_half_spread_bp, 1)} bp per leg</b>.</p>
+      <p>They cross at <b>{num(c.breakeven_half_spread_bp, 1)} bp per leg</b>{c.breakeven_brokerage_mode === "cap" ? ", with discount-broker brokerage (₹20 or 0.03% an order)" : ""}:
+        the widest bid/ask at which the average trade still breaks even.</p>
+      {c.assumed_half_spread_bp && (
+        <p className="note">For comparison, the cost model assumes today: {Object.entries(c.assumed_half_spread_bp).map(([s, v]) =>
+          `${s} ${num(v.busiest_bp, 1)} bp on the busiest contract`).join(", ")}. These are assumptions from tick size and volume, not
+          observed quotes; record real quotes with <span className="mono">scripts/record_quotes.py</span> to check them.</p>
+      )}
     </Card>);
 }
 
@@ -173,7 +179,7 @@ export default function Research() {
           <Kpi label="Gross per trade" value={bp(c.gross_bp)} sub="what convergence paid" />
           <Kpi label="Costs per trade" value={`${cost.toFixed(1)} bp`} sub="fees, taxes, spread, slippage" />
           <Kpi label="Net per trade" value={bp(c.net_bp)} tone={c.net_bp < 0 ? "bad" : "good"} sub={`${r.performance.n_trades} trades · hit rate ${pct(r.performance.hit_rate_net)}`} />
-          <Kpi label="Breakeven spread" value={`${num(c.breakeven_half_spread_bp, 1)} bp`} sub="per leg, per crossing" />
+          <Kpi label="Breakeven spread" value={`${num(c.breakeven_half_spread_bp, 1)} bp`} sub="widest bid/ask per leg that still breaks even" />
         </div>
         {r.event_study && <EventStudy r={r} p={p} />}
         <div className="grid2 even"><Costs r={r} p={p} /><Premiums r={r} p={p} /></div>

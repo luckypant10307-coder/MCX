@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, Scatter, XAxis, YAxis } from "recharts";
 import { useOverview, usePair, useRisk, type Account, type Leg, type PairDetail as PD, type Risk } from "../api";
-import { bp, compact, fdate, fexp, fin, fmon, inr, ms, num, pct, vs } from "../format";
+import { bp, compact, fdate, fexp, fin, fmon, inr, ms, num, pct, sci, vs } from "../format";
 import { usePalette } from "../theme";
 import { Box, SoftTooltip, axis } from "../components/charts";
 import { Card, Chip, Legend, Loaded } from "../components/ui";
@@ -27,7 +27,7 @@ function checks(p: PD, r: Risk, acct: Account | undefined): Check[] {
     { k: "Half-life", ok: g.gate_halflife ?? null, d: `${fin(p.halflife) ? num(p.halflife, 1) + " sessions" : "∞"} to close half the gap (limit 30)` },
     { k: "Size", ok: g.gate_magnitude ?? null, d: `|z| ${num(fin(p.z) ? Math.abs(p.z) : null)} vs ${p.z_entry}; extra ${bp(p.dislocation_bp)} vs 15 bp minimum and the noise floor` },
     { k: "Liquidity", ok: legs.length === 2 ? legs.every((l) => l.tradable !== false && l.liquidity !== "RED") : null,
-      d: legs.map((l) => `${l.symbol} ${compact(l.avg_volume_20)} lots/day (${l.liquidity ?? "–"})`).join(" · ") },
+      d: legs.map((l) => `${l.symbol} ${compact(l.avg_volume_20)} lots/day, OI ${compact(l.avg_oi_20)}, Amihud ${sci(l.amihud_20)} (${l.liquidity ?? "–"})`).join(" · ") },
     { k: "Lifecycle", ok: Number.isFinite(left) ? left >= ENTRY_SESSIONS : null,
       d: Number.isFinite(left) ? `${left} sessions to the nearer expiry (need ${ENTRY_SESSIONS}); exit before tender` +
         (legs.some((l) => l.front_month === false) ? ". Priced in the next contract: the front month is too close to expiry." : "") : "no contract with enough runway" },
@@ -113,8 +113,8 @@ export default function PairDetail() {
               <div className={"x" + (hot ? " hot" : "")} style={{ flex: `${Math.max(xAbs / tot, 0.05)} 0 auto` }}>extra {bp(d.dislocation_bp)} · z = {num(d.z)}</div>
             </div>
             {d.cost && (
-              <p>Trading it costs about <b>{bp(d.cost.round_trip_bp)}</b> for a full round trip (bid/ask {bp(d.cost.spread_cost_bp)} +
-                charges {bp(d.cost.charges_bp)}), so the extra gap is{" "}
+              <p>Trading it costs about <b>{bp(d.cost.round_trip_bp)}</b> for a full round trip (bid/ask {bp(d.cost.spread_cost_bp)}, assumed from
+                tick size and volume because MCX's daily file has no quotes, + charges {bp(d.cost.charges_bp)}), so the extra gap is{" "}
                 <b className={d.cost.covers_cost ? "c-good" : "c-bad"}>{d.cost.covers_cost ? "larger" : "smaller"}</b> than the
                 cost by {bp(Math.abs(d.cost.gap_after_cost_bp))}. Only the part of the gap that actually closes is earned.</p>
             )}

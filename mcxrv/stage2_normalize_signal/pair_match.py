@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from ..stage1_intake import specs
+
 
 @dataclass
 class LiquidityConfig:
@@ -41,6 +43,46 @@ class LiquidityConfig:
     illiquidity_coef: float = 60.0
     # Fit-error contribution to the measurement noise floor.
     fit_rmse_weight: float = 1.0
+
+
+def model_half_spread_bp(volume, tick_bp, cfg: LiquidityConfig | None = None):
+    """
+    The ASSUMED one-way crossing cost, in bp: one tick, or more on thin days.
+
+        half_spread_bp = max(half_spread_ticks x tick_bp, illiquidity_coef / sqrt(volume))
+
+    An assumption, not a measurement: the bhavcopy carries no bid or ask, and daily
+    high/low/close cannot recover a spread this small (docs/EXPERIMENTS.md, section 4).
+    Observed quotes recorded with scripts/record_quotes.py are the check against it.
+    Works on scalars or arrays.
+    """
+    cfg = cfg or LiquidityConfig()
+    vol = np.clip(np.asarray(volume, dtype=float), 1.0, None)
+    return np.fmax(cfg.half_spread_ticks * np.asarray(tick_bp, dtype=float),
+                   cfg.illiquidity_coef / np.sqrt(vol))
+
+
+def amihud(quotes: pd.DataFrame, window: int = 20) -> pd.DataFrame:
+    """
+    Amihud illiquidity per contract: the trailing `window`-session median of
+    |daily log return| / rupee turnover, turnover in Rs crore.
+
+    Higher means each crore traded moves the price more: a thinner market. Kept in
+    its own units on purpose; it ranks liquidity and is not a spread or a cost in bp.
+    Days with no genuine trading are left out. Returns contract_id, date, amihud.
+    """
+    d = quotes.copy()
+    ok = (d["close"] > 0) & (d["volume"] > 0)
+    if "settle_untradeable" in d.columns:
+        ok &= ~d["settle_untradeable"].fillna(False).astype(bool)
+    d = d[ok].sort_values(["contract_id", "date"])
+    mult = d["symbol"].map(lambda s: specs.get(s).trading_unit_g / specs.get(s).quote_base_g)
+    d["turnover_cr"] = d["volume"].astype(float) * d["close"].astype(float) * mult / 1e7
+    d["abs_ret"] = d.groupby("contract_id")["close"].transform(lambda c: np.log(c.astype(float)).diff().abs())
+    d["ratio"] = d["abs_ret"] / d["turnover_cr"]
+    d["amihud"] = (d.groupby("contract_id")["ratio"]
+                   .transform(lambda r: r.rolling(window, min_periods=max(5, window // 2)).median()))
+    return d[["contract_id", "date", "amihud"]]
 
 
 def annotate(rows: pd.DataFrame, daily: pd.DataFrame,
@@ -72,9 +114,7 @@ def annotate(rows: pd.DataFrame, daily: pd.DataFrame,
                      & d["gate_oi"] & d["gate_lifecycle"])
 
     vol = d["volume"].clip(lower=1.0).astype(float)
-    spread_from_ticks = cfg.half_spread_ticks * d["tick_bp_of_norm"].astype(float)
-    spread_from_thin = cfg.illiquidity_coef / np.sqrt(vol)
-    d["half_spread_bp"] = np.fmax(spread_from_ticks, spread_from_thin)
+    d["half_spread_bp"] = model_half_spread_bp(vol, d["tick_bp_of_norm"], cfg)
 
     d["max_lots"] = np.floor(vol * cfg.participation_cap).clip(lower=0)
 

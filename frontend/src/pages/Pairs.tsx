@@ -28,7 +28,7 @@ export default function Pairs() {
           {s.WARMUP ? `, ${s.WARMUP} warming up` : ""}. The normal gap is each pair's own trailing centre, which already contains carry between expiries
           and each coin's premium; only the extra is scored.</p></section>}
         <section className="card"><div className="tw"><table>
-          <thead><tr><th>Pair</th><th>Contracts</th><th className="num">Gap</th><th className="num">Normal</th><th className="num">Extra</th><th className="num" title="Full round trip: open and close both legs">Round-trip cost</th>
+          <thead><tr><th>Pair</th><th>Contracts</th><th className="num">Gap</th><th className="num">Normal</th><th className="num">Extra</th><th className="num" title="Full round trip, open and close both legs: charges plus a bid/ask that is assumed from tick size and volume (MCX's daily file has no quotes)">Round-trip cost</th>
             <th>z, −4 to +4</th><th className="num">z (t−1)</th><th>Decision</th><th>Reason</th></tr></thead>
           <tbody>{ps.map((p) => (
             <tr key={p.pair} className="go" tabIndex={0} onClick={() => go("/pairs/" + pairUrl(p.pair))}

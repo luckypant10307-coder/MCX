@@ -7,6 +7,13 @@ export const num = (v: unknown, d = 2) => (fin(v) ? `${v < 0 ? "−" : ""}${Math
 export const int = (v: unknown) => (fin(v) ? Math.round(v).toLocaleString("en-IN") : "–");
 export const inr = (v: unknown) => (fin(v) ? `${v < 0 ? "−" : ""}₹${Math.abs(Math.round(v)).toLocaleString("en-IN")}` : "–");
 export const lakh = (v: unknown) => (fin(v) ? `${v < 0 ? "−" : ""}₹${(Math.abs(v) / 1e5).toFixed(2)} L` : "–");
+/** 0.000112 -> "1.1×10⁻⁴": for measures kept in their own units, such as Amihud illiquidity. */
+export const sci = (v: unknown, d = 1) => {
+  if (!fin(v) || v === 0) return fin(v) ? "0" : "–";
+  const e = Math.floor(Math.log10(Math.abs(v)));
+  const sup = String(e).replace("-", "⁻").replace(/\d/g, (c) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(c)]);
+  return `${(v / 10 ** e).toFixed(d)}×10${sup}`;
+};
 export const pct = (v: unknown, d = 0) => (fin(v) ? `${(v * 100).toFixed(d)}%` : "–");
 /** 1,90,495 -> 1.9 L; 34,736 -> 34.7 K */
 export const compact = (v: unknown) =>
