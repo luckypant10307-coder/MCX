@@ -410,6 +410,21 @@ def anomaly_review(result) -> dict:
 
 
 # ---------------------------------------------------------------- research
+def _assumed_spreads(rows) -> dict:
+    """The model's assumed half-spread on the latest session, per symbol: the busiest
+    tradable contract and the median over all tradable ones. An assumption, labelled
+    as one wherever it is shown."""
+    if rows is None or rows.empty or "half_spread_bp" not in rows.columns:
+        return {}
+    last = rows[(rows["date"] == rows["date"].max()) & rows["tradable"].astype(bool)]
+    out = {}
+    for sym, g in last.groupby("symbol"):
+        busiest = g.loc[g["volume"].idxmax()]
+        out[sym] = {"busiest_bp": float(busiest["half_spread_bp"]),
+                    "median_bp": float(g["half_spread_bp"].median())}
+    return out
+
+
 def research(result) -> dict:
     """
     The evidence behind the verdict, over the whole loaded history: does a wide spread
@@ -462,7 +477,11 @@ def research(result) -> dict:
                           ["half_spread_bp_per_leg", "statutory_bp", "execution_bp",
                            "round_trip_bp"]),
         "gross_bp": gross, "net_bp": perf.get("mean_net_bp"),
+        # The half-spread per leg at which the backtest's mean gross pays exactly the
+        # four crossings plus statutory charges and brokerage under this schedule.
         "breakeven_half_spread_bp": be,
+        "breakeven_brokerage_mode": ccfg.brokerage_mode,
+        "assumed_half_spread_bp": _assumed_spreads(result.rows),
     }
 
     prem = result.premiums
@@ -505,7 +524,7 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
 
     # contracts on the latest session, front month per symbol
     contracts = []
-    liq, avg_vol = {}, {}
+    liq, avg_vol, avg_oi, am_last = {}, {}, {}, {}
     if q is not None and not q.empty:
         last = q[q["date"] == q["date"].max()]
         fm = normalize.front_month(last)
@@ -518,6 +537,15 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
         recent = set(sorted(q["date"].unique())[-LIQ_AVG_SESSIONS:])
         avg_vol = (q[q["date"].isin(recent)].groupby("contract_id")["volume"].mean()
                    .to_dict())
+        avg_oi = (q[q["date"].isin(recent)].groupby("contract_id")["open_interest"].mean()
+                  .to_dict()) if "open_interest" in q.columns else {}
+        # Amihud illiquidity over the same 20 sessions; a little more history so the
+        # rolling median is full on the latest day.
+        from mcxrv.stage2_normalize_signal.pair_match import amihud as _amihud
+        window_q = q[q["date"].isin(set(sorted(q["date"].unique())[-(LIQ_AVG_SESSIONS + 5):]))]
+        am = _amihud(window_q, LIQ_AVG_SESSIONS)
+        am_last = (am.dropna().sort_values("date").groupby("contract_id")["amihud"].last().to_dict()
+                   if not am.empty else {})
         for r in fm.to_dict("records"):
             sp = specs.get(r["symbol"])
             extra = liq.get(r["contract_id"], {})
@@ -535,6 +563,8 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
                 "half_spread_bp": extra.get("half_spread_bp"),
                 "fine_g_per_lot": sp.fine_g_per_lot,
                 "avg_volume_20": av,
+                "avg_oi_20": avg_oi.get(r["contract_id"]),
+                "amihud_20": am_last.get(r["contract_id"]),
                 "liquidity": liquidity_level(r["symbol"], av),
             }))
     legs = {c["symbol"]: c for c in contracts}
@@ -627,12 +657,15 @@ def build(result, generated_at: datetime | None = None, archive: dict | None = N
                                   "expiry_date": cid.split("|", 1)[1],
                                   "sessions_to_expiry": risk_now.get(s_key),
                                   "avg_volume_20": av, "liquidity": liquidity_level(sym, av),
+                                  "avg_oi_20": avg_oi.get(cid), "amihud_20": am_last.get(cid),
+                                  "half_spread_bp": lrow.get("half_spread_bp"),
                                   "tradable": lrow.get("tradable"), "front_month": False}
             else:
                 front = legs.get(sym) or {"symbol": sym}
                 pair_legs[sym] = {**{k: front.get(k) for k in (
                     "symbol", "contract_id", "expiry_date", "sessions_to_expiry",
-                    "avg_volume_20", "liquidity", "tradable")}, "front_month": True}
+                    "avg_volume_20", "avg_oi_20", "amihud_20", "half_spread_bp",
+                    "liquidity", "tradable")}, "front_month": True}
         la, lb = pair_legs[p["sym_a"]], pair_legs[p["sym_b"]]
         p["legs"] = [clean(la), clean(lb)]
         try:

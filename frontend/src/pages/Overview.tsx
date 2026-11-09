@@ -41,12 +41,16 @@ export default function Overview() {
                   <td><b>{c.symbol}</b></td><td className="nw">{fexp(c.expiry_date)}</td><td className="num">{int(c.close)}</td>
                   <td className="num">{c.quote_base_g} g · {Math.round(c.purity * 1000)}</td>
                   <td className="num"><b>{int(c.inr_per_g_fine)}</b></td>
-                  <td className="nw">{c.liquidity && <Chip s={c.liquidity} />}<div className="sub" style={{ marginTop: 4 }}>{compact(c.avg_volume_20)} lots/day</div></td>
+                  <td className="nw">{c.liquidity && <Chip s={c.liquidity} />}
+                    <div className="sub" style={{ marginTop: 4 }}>{compact(c.avg_volume_20)} lots/day · OI {compact(c.avg_oi_20)}</div>
+                    <div className="sub" title="Amihud illiquidity: median |daily return| per ₹ crore traded, last 20 sessions. Higher = thinner market.">Amihud {sci(c.amihud_20)}</div></td>
                 </tr>))}
               </tbody>
             </table></div>
             <p className="note">Quote basis is the grams the price refers to and the purity (995 or 999 parts per thousand). Same metal, four quote formats. After conversion they sit within {spreadBp == null ? "–" : spreadBp.toFixed(0)} bp of each other.
-              Liquidity is average lots traded per day over 20 sessions (K = thousand, L = lakh) against each contract's minimum: green ≥ 2×, yellow ≥ 1×.</p>
+              Liquidity is average lots traded per day over 20 sessions (K = thousand, L = lakh) against each contract's minimum: green ≥ 2×, yellow ≥ 1×.
+              OI is average open interest in lots. Amihud is the median price move per ₹ crore traded: higher means a thinner market; compare it between
+              contracts, it is not a cost. Bid/ask spreads are not in MCX's daily file, so every spread figure in this app is an assumption from tick size and volume.</p>
           </Card>
 
           <Card title="Gold, ₹ per gram of pure gold" note={`fitted level · last ${gold.length} sessions`}>
