@@ -82,6 +82,7 @@ jobs:
 
       - name: Download new MCX sessions
         if: env.SOURCE == 'csv'
+        continue-on-error: true
         run: python scripts/fetch_mtf.py
 
       - name: Build snapshot and notify
